@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run ImGui App",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/Debug/ImGuiOpenGLProject.exe",
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build (Debug)"
+        }
+    ]
+}
