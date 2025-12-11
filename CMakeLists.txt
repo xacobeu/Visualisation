@@ -33,18 +33,18 @@ find_package(glad CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
-add_executable(${PROJECT_NAME} 
+add_executable(${PROJECT_NAME}
     src/mesh/Mesh.cpp
     src/mesh/MeshFactory.cpp
 
-    src/renderer/Camera.cpp 
-    src/renderer/Country.cpp 
-    src/renderer/Renderer.cpp 
-    src/renderer/Shader.cpp 
+    src/renderer/Camera.cpp
+    src/renderer/Country.cpp
+    src/renderer/Renderer.cpp
+    src/renderer/Shader.cpp
     src/renderer/Vertex.cpp
-    
-    src/App.cpp 
-    src/main.cpp 
+
+    src/App.cpp
+    src/main.cpp
 )
 
 # Ensure C++20 features are available to this target

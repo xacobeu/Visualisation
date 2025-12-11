@@ -9,12 +9,10 @@
     {
       "name": "base",
       "hidden": true,
-      "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_CXX_STANDARD": "20",
         "CMAKE_CXX_EXTENSIONS": "OFF",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     },
 
