@@ -74,6 +74,9 @@ bool App::init() {
 void App::run() {
     ImGuiIO& io = ImGui::GetIO();
 
+    // Enable docking.
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
@@ -93,7 +96,7 @@ void App::run() {
         glEnable(GL_DEPTH_TEST);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-        
+
         renderer.render((int) io.DisplaySize.x, (int) io.DisplaySize.y);
         
         // ImGui Render.
@@ -104,12 +107,12 @@ void App::run() {
 }
 
 // Cleanup.
-void App::shutdown() {
-    renderer.cleanup();
-    
+void App::shutdown() { 
+
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
+
     glfwDestroyWindow(window);
     glfwTerminate();
 }

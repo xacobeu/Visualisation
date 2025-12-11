@@ -32,13 +32,13 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(implot CONFIG REQUIRED)
 
 add_executable(${PROJECT_NAME}
     src/mesh/Mesh.cpp
     src/mesh/MeshFactory.cpp
 
     src/renderer/Camera.cpp
-    src/renderer/Country.cpp
     src/renderer/Renderer.cpp
     src/renderer/Shader.cpp
     src/renderer/Vertex.cpp
@@ -60,6 +60,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     glad::glad
     OpenGL::GL
     nlohmann_json::nlohmann_json
+    implot::implot
 )
 
 # Copy required DLLs to output directory on Windows
