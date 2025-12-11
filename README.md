@@ -1,96 +1,25 @@
 # Geography Visualisation Tool
 
 ## Prerequisites
-- CMake 3.21 or higher
-- [vcpkg](https://github.com/microsoft/vcpkg)
-- C++17 compiler
 
-## Building
+1. **Install a C++ Compiler**
 
-### Windows
+2. **Install CMake** (if not already installed)
 
-1. **Install CMake** (if not already installed)
-   - Download from [cmake.org](https://cmake.org/download/)
+3. **Install vcpkg** (if not already installed)
 
-2. **Install vcpkg** (if not already installed):
-   ```powershell
-   cd C:\
-   git clone https://github.com/microsoft/vcpkg.git
-   .\vcpkg\bootstrap-vcpkg.bat
-   ```
-
-3. **Set environment variable for vcpkg**:
-   ```powershell
-   [System.Environment]::SetEnvironmentVariable('VCPKG_ROOT', 'C:\vcpkg', 'User')
-   ```
-   Then restart your terminal for the changes to take effect.
-
-4. **Install dependencies** (in the project directory):
+4. **Install dependencies** (in the project root):
    ```powershell
    vcpkg install
    ```
-   This reads `vcpkg.json` and installs glfw3, glad, imgui, and stb to `vcpkg_installed/x64-windows/`.
 
-5. **Configure and build**:
-   ```powershell
-   cmake -B build -S .
-   cmake --build build --config Release
-   ```
-   CMake automatically finds packages in the local `vcpkg_installed` directory.
+## Running
 
-6. **Run the application**:
-   ```powershell
-   .\build\Release\ImGuiOpenGLProject.exe
-   ```
+1. **Install 'CMake Tools' VScode extension**
 
-### macOS/Linux
+2. **Run 'Cmake: Configure' (Ctrl + Shift + p)**
 
-1. **Install CMake** (if not already installed)
-   
-   macOS:
-   ```bash
-   brew install cmake
-   ```
-   
-   Linux (Ubuntu/Debian):
-   ```bash
-   sudo apt update
-   sudo apt install cmake build-essential
-   ```
+3. **Run 'Cmake: Build' (Ctrl + Shift + p)**
 
-2. **Install vcpkg** (if not already installed):
-   ```bash
-   cd ~
-   git clone https://github.com/microsoft/vcpkg.git
-   ./vcpkg/bootstrap-vcpkg.sh
-   ```
+4. **Run 'Cmake: Debug' (Ctrl + Shift + p)**
 
-3. **Set environment variable for vcpkg**:
-   
-   Add to `~/.bashrc` or `~/.zshrc`:
-   ```bash
-   export VCPKG_ROOT=~/vcpkg
-   export PATH=$VCPKG_ROOT:$PATH
-   ```
-   Then reload your shell:
-   ```bash
-   source ~/.bashrc  # or source ~/.zshrc
-   ```
-
-4. **Install dependencies** (in the project directory):
-   ```bash
-   vcpkg install
-   ```
-   This reads `vcpkg.json` and installs glfw3, glad, imgui, and stb to `vcpkg_installed/x64-osx/` or `vcpkg_installed/x64-linux/`.
-
-5. **Configure and build**:
-   ```bash
-   cmake -B build -S .
-   cmake --build build --config Release
-   ```
-   CMake automatically detects your platform and finds packages in the local `vcpkg_installed` directory.
-
-6. **Run the application**:
-   ```bash
-   ./build/ImGuiOpenGLProject
-   ```
