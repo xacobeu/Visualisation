@@ -25,6 +25,18 @@ struct Matrix4 {
         return r;
     }
 
+    static Matrix4 frustrum(float left, float right, float bottom, float top, float nearZ, float farZ) {
+        Matrix4 r{};
+        r.m[0]  = (2.0f * nearZ) / (right - left);
+        r.m[5]  = (2.0f * nearZ) / (top - bottom);
+        r.m[8]  = (right + left) / (right - left);
+        r.m[9]  = (top + bottom) / (top - bottom);
+        r.m[10] = -(farZ + nearZ) / (farZ - nearZ);
+        r.m[11] = -1.0f;
+        r.m[14] = -(2.0f * farZ * nearZ) / (farZ - nearZ);
+        return r;
+    }
+
     static Vector3 normalize(const Vector3& v) {
         float l = sqrtf(v.x*v.x + v.y*v.y + v.z*v.z);
         return { v.x/l, v.y/l, v.z/l };

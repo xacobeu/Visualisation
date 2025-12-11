@@ -11,8 +11,7 @@ bool Shader::compile(const std::string& vsSrc, const std::string& fsSrc) {
     GLuint vs = compileSingle(GL_VERTEX_SHADER, vsSrc);
     GLuint fs = compileSingle(GL_FRAGMENT_SHADER, fsSrc);
 
-    if (!vs || !fs)
-        return false;
+    if (!vs || !fs) return false;
 
     bool ok = link(vs, fs);
 

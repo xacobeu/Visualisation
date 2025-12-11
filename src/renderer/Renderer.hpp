@@ -3,12 +3,14 @@
 #include <glad/glad.h>
 
 #include "util/MathUtils.hpp"
-#include "util/MeshData.h"
 #include "Country.hpp"
 #include "Shader.hpp"
 #include "Camera.hpp"
-#include "SphereGenerator.hpp"
 #include "util/Pi.hpp"
+
+#include "mesh/MeshFactory.hpp"
+#include "mesh/Mesh.hpp"
+#include "GL/GLObject.hpp"
 
 class Renderer {
 public:
@@ -31,6 +33,7 @@ public:
     void render(int width, int height);
 
     Camera camera;
+    Mesh sphere;
 
 private:
 
@@ -42,29 +45,30 @@ private:
     Shader borderShader;
     Shader spaceBackgroundShader;
 
+    // Globe mesh buffers
+    GL::VertexArray globeVAO;
+    GL::VertexBuffer globeVBO;
+    GL::ElementBuffer globeEBO;
+    int globeIndexCount = 0;
+
+    // Borders mesh buffers
+    GL::VertexArray borderVAO;
+    GL::VertexBuffer borderVBO;
+    int borderVertexCount = 0;
+
+    // Space background quad buffers
+    GL::VertexArray spaceVAO;
+    GL::VertexBuffer spaceVBO;
+
+    void setupGlobeBuffers(const Mesh::MeshData& mesh);
+    void setupBorderBuffers();
+    void setupSpaceBackgroundQuad();
+
     // Textures
     GLuint heightTexture = 0;
     GLuint colorTexture = 0;
     void setupHeightTexture();
     void setupColorTexture();
-
-    // Globe mesh buffers
-    GLuint globeVAO = 0;
-    GLuint globeVBO = 0;
-    GLuint globeEBO = 0;
-    int globeIndexCount = 0;
-    void setupGlobeBuffers(MeshData mesh);
-
-    // Borders mesh buffers
-    GLuint borderVAO = 0;
-    GLuint borderVBO = 0;
-    int borderVertexCount = 0;
-    void setupBorderBuffers();
-
-    // Space background quad buffers
-    GLuint spaceVAO = 0;
-    GLuint spaceVBO = 0;
-    void setupSpaceBackgroundQuad();
 
     // Country data
     std::vector<Country> countries;
@@ -79,9 +83,6 @@ private:
         unsigned char* data = nullptr;
     } heightmap, colormap;
 
-    static inline void safeDeleteVAO(GLuint& vao) { if (vao) { glDeleteVertexArrays(1, &vao); vao = 0; }};
-    static inline void safeDeleteBuffer(GLuint& buf) { if (buf) { glDeleteBuffers(1, &buf); buf = 0; }};
-    static inline void safeDeleteTexture(GLuint& tex) { if (tex) { glDeleteTextures(1, &tex); tex = 0; }};
     static void safeStbiFree(mapData& map);
     
     static inline float deg2rad(float d) { return d * PI / 180.0f; }

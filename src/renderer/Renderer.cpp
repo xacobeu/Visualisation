@@ -1,6 +1,8 @@
 #include "Renderer.hpp"
 #include "util/Matrix4.hpp"
 
+
+
 #include <vector>
 #include <iostream>
 #include <cmath>
@@ -10,18 +12,13 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-void Renderer::safeStbiFree(mapData& map) { 
-    if (map.data) { 
-        stbi_image_free(map.data); 
-        map.data = nullptr; 
-    }
-}
-
 Renderer::Renderer() { }
 Renderer::~Renderer() { cleanup(); }
 
 bool Renderer::init() {
 
+    printf("Initializing renderer...\n");
+    
     // Load map data
     if (!loadMapData()) return false;
 
@@ -29,16 +26,14 @@ bool Renderer::init() {
     setupHeightTexture();
     setupColorTexture();
 
-    setupGlobeBuffers(SphereGenerator::generateSphere(
-        SPHERE_RESOLUTION, 
-        ELEVATION_SCALE, 
-        [this](Vector2 uv) -> float { return this->sampleHeight(uv); })
-    );
+    sphere = MeshFactory::sphere(SPHERE_RESOLUTION, Vector3{0.0f, 0.0f, 0.0f});
+    setupGlobeBuffers(sphere.getData());
 
     if (!globeShader.compileFromFiles(GLOBE_VERT_PATH, GLOBE_FRAG_PATH)) {
         std::cerr << "Failed to create globe shader program.\n";
         return false;
     }
+    printf("Globe shader compiled successfully.\n");
 
     // Borders setup
     setupBorderBuffers();
@@ -46,6 +41,7 @@ bool Renderer::init() {
         std::cerr << "Failed to create border shader program.\n";
         return false;
     }
+    printf("Border shader compiled successfully.\n");
 
     // Space background setup
     setupSpaceBackgroundQuad();
@@ -53,29 +49,12 @@ bool Renderer::init() {
         std::cerr << "Failed to create space background shader program.\n";
         return false;
     }
+    printf("Space background shader compiled successfully.\n");
     
     return true;
 }
 
 void Renderer::cleanup() {
-    
-    // Globe mesh buffers
-    safeDeleteVAO(globeVAO);
-    safeDeleteBuffer(globeVBO);
-    safeDeleteBuffer(globeEBO);
-
-    // Borders mesh buffers
-    safeDeleteBuffer(borderVBO);
-    safeDeleteVAO(borderVAO);
-
-    // Space background quad buffers
-    safeDeleteBuffer(spaceVBO);
-    safeDeleteVAO(spaceVAO);
-
-    // Textures
-    safeDeleteTexture(heightTexture);
-    safeDeleteTexture(colorTexture);
-
     // Free map data
     safeStbiFree(heightmap);
     safeStbiFree(colormap);
@@ -90,9 +69,9 @@ void Renderer::render(int width, int height) {
     spaceBackgroundShader.bind();
     spaceBackgroundShader.setVec2("uResolution", (float)width, (float)height);
     
-    glBindVertexArray(spaceVAO);
+    spaceVAO.bind();
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
+    spaceVAO.unbind();
         
     glEnable(GL_DEPTH_TEST);
     
@@ -116,9 +95,9 @@ void Renderer::render(int width, int height) {
     globeShader.setInt("colormap", 1);
 
     // Draw.
-    glBindVertexArray(globeVAO);
+    globeVAO.bind();
     glDrawElements(GL_TRIANGLES, globeIndexCount, GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
+    globeVAO.unbind();
     
     Shader::unbind();
 
@@ -127,58 +106,37 @@ void Renderer::render(int width, int height) {
     borderShader.setMat4("uView", view.data());
     borderShader.setMat4("uProj", proj.data());
     
-    glBindVertexArray(borderVAO);
+    borderVAO.bind();
     glDrawArrays(GL_LINES, 0, borderVertexCount);
-    glBindVertexArray(0);
+    borderVAO.unbind();
     
     Shader::unbind();
 }
 
 // === GPU stuff ===
 
-// === GPU stuff ===
+void Renderer::setupGlobeBuffers(const Mesh::MeshData& mesh) {
 
-void Renderer::setupGlobeBuffers(MeshData mesh) {
-
-    struct Vertex {
-        Vector3 pos;
-        Vector3 normal;
-        Vector2 uv;
-    };
-
-    std::vector<Vertex> vdata;
-    vdata.reserve(mesh.vertices.size());
-
-    for (size_t i = 0; i < mesh.vertices.size(); i++)
-        vdata.push_back({ mesh.vertices[i], mesh.normals[i], mesh.uvs[i] });
-
+    globeVAO.create();
+    globeVBO.create();
+    globeEBO.create();
+    
     globeIndexCount = static_cast<int>(mesh.triangles.size());
+    
+    globeVAO.bind();
+    
+    {
+        globeVBO.bind();
+        globeVBO.data(mesh.vertices.size() * sizeof(Vertex), mesh.vertices.data(), GL_STATIC_DRAW);
 
-    glGenVertexArrays(1, &globeVAO);
-    glGenBuffers(1, &globeVBO);
-    glGenBuffers(1, &globeEBO);
-    glBindVertexArray(globeVAO);
+        globeEBO.bind();
+        globeEBO.data(mesh.triangles.size() * sizeof(int), mesh.triangles.data(), GL_STATIC_DRAW);
 
-    // Upload vertex data
-    glBindBuffer(GL_ARRAY_BUFFER, globeVBO);
-    glBufferData(GL_ARRAY_BUFFER, vdata.size() * sizeof(Vertex), vdata.data(), GL_STATIC_DRAW);
+        globeVAO.setLayout<Vertex>();
+    }
 
-    // Upload index data
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, globeEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh.triangles.size() * sizeof(int), mesh.triangles.data(), GL_STATIC_DRAW);
+    globeVAO.unbind();
 
-    // Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    // Normal attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
-    glEnableVertexAttribArray(1);
-
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
-    glEnableVertexAttribArray(2);
-
-    glBindVertexArray(0);
 }
 
 void Renderer::setupBorderBuffers() {
@@ -233,17 +191,17 @@ void Renderer::setupBorderBuffers() {
     borderVertexCount = (int)verts.size();
     if (borderVertexCount == 0) return;
 
-    glGenVertexArrays(1, &borderVAO);
-    glGenBuffers(1, &borderVBO);
+    borderVAO.create();
+    borderVBO.create();
 
-    glBindVertexArray(borderVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, borderVBO);
-    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(BorderVertex), verts.data(), GL_STATIC_DRAW);
+    borderVAO.bind();
+    borderVBO.bind();
+    borderVBO.data(verts.size() * sizeof(BorderVertex), verts.data(), GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(BorderVertex), (void*)0);
     glEnableVertexAttribArray(0);
 
-    glBindVertexArray(0);
+    borderVAO.unbind();
 
     std::cout << "Border vertices: " << borderVertexCount << "\n";
 }
@@ -288,6 +246,8 @@ float Renderer::sampleHeight(Vector2 uv) {
 
 bool Renderer::loadMapData() {
 
+    printf("Loading map data...\n");
+
     int w, h, c;
 
     // Load heightmap (grayscale)
@@ -331,15 +291,15 @@ void Renderer::setupSpaceBackgroundQuad() {
         2, 3, 0
     };
 
-    glGenVertexArrays(1, &spaceVAO);
-    glGenBuffers(1, &spaceVBO);
+    spaceVAO.create();
+    spaceVBO.create();
     GLuint spaceEBO;
     glGenBuffers(1, &spaceEBO);
 
-    glBindVertexArray(spaceVAO);
+    spaceVAO.bind();
 
-    glBindBuffer(GL_ARRAY_BUFFER, spaceVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+    spaceVBO.bind();
+    spaceVBO.data(sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, spaceEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndices), quadIndices, GL_STATIC_DRAW);
@@ -348,5 +308,12 @@ void Renderer::setupSpaceBackgroundQuad() {
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    glBindVertexArray(0);
+    spaceVAO.unbind();
+}
+
+void Renderer::safeStbiFree(mapData& map) { 
+    if (map.data) { 
+        stbi_image_free(map.data); 
+        map.data = nullptr; 
+    }
 }

@@ -29,6 +29,26 @@ struct Vec {
         return out;
     }
 
+    Vec operator*(const Vec& rhs) const {
+        Vec out{};
+        for (std::size_t i = 0; i < N; ++i)
+            out[i] = v[i] * rhs[i];
+        return out;
+    }
+
+    Vec operator/(T s) const {
+        Vec out{};
+        for (std::size_t i = 0; i < N; ++i) out[i] = v[i] / s;
+        return out;
+    }
+
+    Vec operator/(const Vec& rhs) const {
+        Vec out{};
+        for (std::size_t i = 0; i < N; ++i)
+            out[i] = v[i] / rhs[i];
+        return out;
+    }
+
     T dot(const Vec& rhs) const {
         T sum = 0;
         for (std::size_t i = 0; i < N; ++i) sum += v[i] * rhs[i];
@@ -39,14 +59,15 @@ struct Vec {
 template<size_t N, typename T>
 Vec<N,T> normalize(const Vec<N,T>& v) {
     T len2 = v.dot(v);
-    if (len2 == 0) return v;
+    if (len2 == T(0))
+        return Vec<N,T>{};
     T invLen = T(1) / std::sqrt(len2);
-
-    Vec<N,T> out;
+    Vec<N,T> out{};
     for (size_t i = 0; i < N; i++)
         out[i] = v[i] * invLen;
     return out;
 }
+
 
 template<typename T>
 struct Vec<2, T> {
@@ -61,7 +82,9 @@ struct Vec<2, T> {
     Vec operator+(const Vec& r) const { return {x + r.x, y + r.y}; }
     Vec operator-(const Vec& r) const { return {x - r.x, y - r.y}; }
     Vec operator*(T s) const          { return {x * s, y * s}; }
-
+    Vec operator*(const Vec& r) const { return {x*r.x, y*r.y}; }
+    Vec operator/(T s) const          { return {x / s, y / s}; }
+    Vec operator/(const Vec& r) const { return {x/r.x, y/r.y}; }
     T dot(const Vec& r) const         { return x*r.x + y*r.y; }
 };
 
@@ -86,7 +109,9 @@ struct Vec<3, T> {
     Vec operator+(const Vec& r) const { return {x + r.x, y + r.y, z + r.z}; }
     Vec operator-(const Vec& r) const { return {x - r.x, y - r.y, z - r.z}; }
     Vec operator*(T s) const          { return {x * s, y * s, z * s}; }
-
+    Vec operator*(const Vec& r) const { return {x*r.x, y*r.y, z*r.z}; }
+    Vec operator/(T s) const          { return {x / s, y / s, z / s}; }
+    Vec operator/(const Vec& r) const { return {x/r.x, y/r.y, z/r.z}; }
     T dot(const Vec& r) const         { return x*r.x + y*r.y + z*r.z; }
 };
 
@@ -112,10 +137,10 @@ struct Vec<4, T> {
     Vec operator+(const Vec& r) const { return {x+r.x, y+r.y, z+r.z, w+r.w}; }
     Vec operator-(const Vec& r) const { return {x-r.x, y-r.y, z-r.z, w-r.w}; }
     Vec operator*(T s) const          { return {x*s, y*s, z*s, w*s}; }
-
-    T dot(const Vec& r) const         {
-        return x*r.x + y*r.y + z*r.z + w*r.w;
-    }
+    Vec operator*(const Vec& r) const { return {x*r.x, y*r.y, z*r.z, w*r.w}; }
+    Vec operator/(T s) const          { return {x / s, y / s, z / s, w / s}; }
+    Vec operator/(const Vec& r) const { return {x/r.x, y/r.y, z/r.z, w/r.w}; }
+    T dot(const Vec& r) const         { return x*r.x + y*r.y + z*r.z + w*r.w; }
 };
 
 using Vector2 = Vec<2,float>;
