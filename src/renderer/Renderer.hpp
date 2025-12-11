@@ -8,7 +8,7 @@
 #include "Shader.hpp"
 #include "Camera.hpp"
 #include "SphereGenerator.hpp"
-#include "util/PI.hpp"
+#include "util/Pi.hpp"
 
 class Renderer {
 public:

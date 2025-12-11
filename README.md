@@ -3,7 +3,7 @@
 ## Prerequisites
 - CMake 3.21 or higher
 - [vcpkg](https://github.com/microsoft/vcpkg)
-- C++17 compatible compiler
+- C++17 compiler
 
 ## Building
 
@@ -94,14 +94,3 @@
    ```bash
    ./build/ImGuiOpenGLProject
    ```
-
-## How It Works
-
-This project uses vcpkg's **manifest mode** for dependency management:
-
-- **`vcpkg.json`**: Declares all dependencies (glfw3, glad, imgui, stb)
-- **`vcpkg install`**: Installs packages locally to `vcpkg_installed/<triplet>/`
-- **`CMakeLists.txt`**: Automatically detects platform and configures CMAKE_PREFIX_PATH to find installed packages
-
-This approach keeps dependencies project-local and works identically across Windows, macOS, and Linux without requiring manual toolchain file specification.
-

@@ -1,3 +1,0 @@
-C:/Users/xacobeu/Desktop/Visualisation/Visualisation/build/CMakeFiles/ImGuiOpenGLProject.dir
-C:/Users/xacobeu/Desktop/Visualisation/Visualisation/build/CMakeFiles/ALL_BUILD.dir
-C:/Users/xacobeu/Desktop/Visualisation/Visualisation/build/CMakeFiles/ZERO_CHECK.dir
