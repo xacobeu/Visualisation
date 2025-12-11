@@ -1,6 +1,6 @@
-^C:\USERS\XACOBEU\DESKTOP\VISUALISATION\VISUALISAITON\CMAKELISTS.TXT
+^C:\USERS\XACOBEU\DESKTOP\VISUALISATION\VISUALISATION\CMAKELISTS.TXT
 setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/xacobeu/Desktop/Visualisation/Visualisaiton -BC:/Users/xacobeu/Desktop/Visualisation/Visualisaiton/build --check-stamp-file C:/Users/xacobeu/Desktop/Visualisation/Visualisaiton/build/CMakeFiles/generate.stamp
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/xacobeu/Desktop/Visualisation/Visualisation -BC:/Users/xacobeu/Desktop/Visualisation/Visualisation/build --check-stamp-file C:/Users/xacobeu/Desktop/Visualisation/Visualisation/build/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone

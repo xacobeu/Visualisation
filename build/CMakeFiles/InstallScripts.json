@@ -1,10 +1,7 @@
 {
 	"InstallScripts" : 
 	[
-		"C:/Users/xacobeu/Desktop/Visualisation/Visualisaiton/build/cmake_install.cmake",
-		"C:/Users/xacobeu/Desktop/Visualisation/Visualisaiton/build/external/glfw/cmake_install.cmake",
-		"C:/Users/xacobeu/Desktop/Visualisation/Visualisaiton/build/external/glfw/src/cmake_install.cmake",
-		"C:/Users/xacobeu/Desktop/Visualisation/Visualisaiton/build/external/glfw/docs/cmake_install.cmake"
+		"C:/Users/xacobeu/Desktop/Visualisation/Visualisation/build/cmake_install.cmake"
 	],
 	"Parallel" : false
 }

@@ -1,17 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <CustomBuild Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisaiton\build\CMakeFiles\202395d39361ce30a03ab8e1f5e775fa\uninstall.rule">
+    <CustomBuild Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisation\build\CMakeFiles\54d9b456f1dc4bbe22d2627f2925e72a\uninstall.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
-    <CustomBuild Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisaiton\external\glfw\CMakeLists.txt" />
+    <CustomBuild Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisation\external\glfw\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisaiton\build\external\glfw\CMakeFiles\uninstall" />
+    <None Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisation\build\external\glfw\CMakeFiles\uninstall" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CMake Rules">
-      <UniqueIdentifier>{16328C3B-55E3-30D9-BE30-BC1A6E5E5B15}</UniqueIdentifier>
+      <UniqueIdentifier>{3717933C-232A-33AA-B6DD-7A2C7B497AA0}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

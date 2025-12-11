@@ -1,24 +1,24 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <CustomBuild Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisaiton\build\CMakeFiles\9ce094c53cb44f866c9a61adb6170798\update_mappings.rule">
+    <CustomBuild Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisation\build\CMakeFiles\4d4cb979b15671235f6c32f70fe3fd25\update_mappings.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
-    <CustomBuild Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisaiton\external\glfw\src\CMakeLists.txt" />
+    <CustomBuild Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisation\external\glfw\src\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisaiton\external\glfw\src\mappings.h.in">
+    <None Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisation\external\glfw\src\mappings.h.in">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisaiton\external\glfw\CMake\GenerateMappings.cmake" />
-    <None Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisaiton\build\external\glfw\src\CMakeFiles\update_mappings" />
+    <None Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisation\external\glfw\CMake\GenerateMappings.cmake" />
+    <None Include="C:\Users\xacobeu\Desktop\Visualisation\Visualisation\build\external\glfw\src\CMakeFiles\update_mappings" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CMake Rules">
-      <UniqueIdentifier>{16328C3B-55E3-30D9-BE30-BC1A6E5E5B15}</UniqueIdentifier>
+      <UniqueIdentifier>{3717933C-232A-33AA-B6DD-7A2C7B497AA0}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files">
-      <UniqueIdentifier>{7FC7096F-B734-3C8C-BDB4-3B0AE23980E0}</UniqueIdentifier>
+      <UniqueIdentifier>{409F1F53-FD8E-3F63-BBB1-85DC3BBF6E97}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
