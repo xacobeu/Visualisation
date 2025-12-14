@@ -28,9 +28,9 @@ Vector3 Camera::getPosition() const {
     float pitchRad = pitch * PI / 180.0f;
     
     return {
-        distance * cos(pitchRad) * cos(yawRad),
-        distance * sin(pitchRad),
-        distance * cos(pitchRad) * sin(yawRad)
+        static_cast<float>(distance * cos(pitchRad) * cos(yawRad)),
+        static_cast<float>(distance * sin(pitchRad)),
+        static_cast<float>(distance * cos(pitchRad) * sin(yawRad))
     };
 }
 

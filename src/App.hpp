@@ -1,13 +1,14 @@
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
+#pragma once
+
 #include "renderer/Renderer.hpp"
+#include "window/Window.hpp"
 
 class App {
 public:
     bool init();
     void run();
-    void shutdown();
 
-    GLFWwindow* window = nullptr;
+private:
+    Window window {800, 600, "Visualisation"};
     Renderer renderer;
 };

@@ -27,10 +27,8 @@ private:
     static constexpr const char* VERT_PATH = "shaders/vertex.glsl";
     static constexpr const char* FRAG_PATH = "shaders/fragment.glsl";
 
-    // Shader
     Shader shader;
 
-    // Globe mesh buffers
     GL::VertexArray VAO;
     GL::VertexBuffer VBO;
     GL::ElementBuffer EBO;

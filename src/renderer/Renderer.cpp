@@ -12,22 +12,24 @@
 
 bool Renderer::init() {
 
-    printf("Initializing renderer...\n");
-
-    // Create sphere mesh and setup buffers.
-    sphere = MeshFactory::sphere(512, Vector3{0.0f, 0.0f, 0.0f});
-    setupBuffers(sphere.getData());
+    setupBuffers(
+        MeshFactory::sphere(512, Vector3{0.0f, 0.0f, 0.0f}).getData()
+    );
 
     if (!shader.compileFromFiles(VERT_PATH, FRAG_PATH)) {
-        std::cerr << "Failed to create globe shader program.\n";
+        std::cerr << "Failed to compile shaders.\n";
         return false;
-    } printf("Shader compiled successfully.\n");
+    }
     
     return true;
 }
 
 void Renderer::render(int width, int height) {
-    
+
+    glViewport(0, 0, width, height);
+    glEnable(GL_DEPTH_TEST);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
     // Get camera matrices
     Matrix4 view = camera.getViewMatrix();
     Matrix4 proj = camera.getProjectionMatrix(float(width) / float(height), 45.0f);

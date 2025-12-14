@@ -43,6 +43,8 @@ add_executable(${PROJECT_NAME}
     src/renderer/Shader.cpp
     src/renderer/Vertex.cpp
 
+    src/window/Window.cpp
+
     src/App.cpp
     src/main.cpp
 )
