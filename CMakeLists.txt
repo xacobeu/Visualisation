@@ -31,29 +31,32 @@ find_package(OpenGL REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
 find_package(implot CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 add_executable(${PROJECT_NAME}
-    src/mesh/Mesh.cpp
-    src/mesh/MeshFactory.cpp
+    src/app/GlobeLayer.cpp
+    src/app/Main.cpp
+    src/app/UILayer.cpp
+    src/app/MapLayer.cpp
 
-    src/renderer/Camera.cpp
-    src/renderer/Renderer.cpp
-    src/renderer/Shader.cpp
-    src/renderer/Vertex.cpp
+    src/core/renderer/geometry/Mesh.cpp
+    src/core/renderer/geometry/MeshFactory.cpp
+    src/core/renderer/GL/Shader.cpp
+    src/core/renderer/GL/Vertex.cpp
+    src/core/renderer/Renderer.cpp
+    src/core/renderer/Camera.cpp
 
-    src/window/Window.cpp
-
-    src/App.cpp
-    src/main.cpp
+    src/core/Application.cpp
+    src/core/Window.cpp
 )
 
 # Ensure C++20 features are available to this target
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
-    src
+    src/app
+    src/core
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -61,8 +64,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     glfw
     glad::glad
     OpenGL::GL
-    nlohmann_json::nlohmann_json
     implot::implot
+    nlohmann_json::nlohmann_json
 )
 
 # Copy required DLLs to output directory on Windows
@@ -87,3 +90,4 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         "${CMAKE_SOURCE_DIR}/shaders"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/shaders"
 )
+
