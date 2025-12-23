@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include "util/MathUtils.hpp"
+#include "util/Vector.hpp"
 #include "util/Pi.hpp"
 #include "renderer/GL/Vertex.hpp"
 

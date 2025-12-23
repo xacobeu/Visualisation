@@ -4,7 +4,7 @@
 #include <memory>
 
 #include "Layer.hpp"
-#include "util/MathUtils.hpp"
+#include "util/Vector.hpp"
 #include "util/Pi.hpp"
 #include "util/Matrix4.hpp"
 #include "renderer/geometry/MeshFactory.hpp"

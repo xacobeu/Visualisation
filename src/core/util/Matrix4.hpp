@@ -1,6 +1,6 @@
 #pragma once
 #include <cmath>
-#include "MathUtils.hpp"
+#include "Vector.hpp"
 
 struct Matrix4 {
     float m[16]{}; // column-major

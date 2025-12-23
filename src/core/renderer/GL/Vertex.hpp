@@ -2,14 +2,14 @@
 
 #include <array>
 #include <glad/glad.h>
-#include "util/MathUtils.hpp"
+#include "util/Vector.hpp"
 
 struct Vertex {
     Vector3 position;
     Vector3 normal;
     Vector2 uv;
     Vector3 color;
-    
+
     struct Attribute {
         GLuint index;
         GLint  size;
