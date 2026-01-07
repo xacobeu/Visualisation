@@ -4,7 +4,7 @@
 #include "imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
 
-Application::Application(int width, int height, const char* title) : window(width, height, title) {};
+Application::Application(const Config& config) : window(config.width, config.height, config.title) {};
 
 void Application::run() {
 
@@ -13,7 +13,7 @@ void Application::run() {
         updateTime(static_cast<float>(glfwGetTime()));
 
         window.pollEvents();
-        window.getDimensions(width, height);
+        window.getDimensions(config.width, config.height);
 
         window.beginImGuiFrame();
 
@@ -21,7 +21,7 @@ void Application::run() {
             layer->onUpdate(deltaTime);
         }
 
-        renderer.begin(width, height);
+        renderer.begin(config.width, config.height);
 
         for (auto& layer : layers) {
             layer->onRender(renderer);
@@ -36,10 +36,8 @@ void Application::close() {
     window.close();
 }
 
-void Application::push(std::unique_ptr<Layer> layer) {
-    layer->app = this;
-    layer->onAttach();
-    layers.emplace_back(std::move(layer));
+const std::vector<std::unique_ptr<Layer>>& Application::getLayers() const {
+    return layers;
 }
 
 void Application::updateTime(float now) {

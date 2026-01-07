@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <iostream>
-#include <cmath>
 #include <filesystem>
 #include <GLFW/glfw3.h>
 
@@ -18,9 +17,9 @@ void Renderer::begin(int width, int height) {
 }
 
 void Renderer::submit(const std::shared_ptr<GL::VertexArray>& vao,
-                const std::shared_ptr<int> indexCount,
-                const std::shared_ptr<GL::Shader>& shader,
-                const Matrix4& transform) {
+                      const std::shared_ptr<int> indexCount,
+                      const std::shared_ptr<GL::Shader>& shader,
+                      const Matrix4& transform) {
 
     shader->bind();
     shader->setMat4("u_Transform", transform.data());

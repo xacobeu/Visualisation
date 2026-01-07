@@ -19,18 +19,8 @@ public:
     ~Renderer() = default;
 
     void begin(int width, int height);
-    void submit();
-    void end();
-
-    void draw(int width, int height);
-
     void submit(const std::shared_ptr<GL::VertexArray>& vao,
                 const std::shared_ptr<int> indexCount,
                 const std::shared_ptr<GL::Shader>& shader,
                 const Matrix4& transform);
-
-    void push(std::shared_ptr<Layer> layer);
-private:
-    // TODO: Render queue.
-
 };

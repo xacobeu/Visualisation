@@ -35,10 +35,11 @@ find_package(implot CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
 add_executable(${PROJECT_NAME}
-    src/app/GlobeLayer.cpp
     src/app/Main.cpp
-    src/app/UILayer.cpp
-    src/app/MapLayer.cpp
+    src/app/layers/UILayer.cpp
+    src/app/layers/MapLayer.cpp
+    src/app/util/GraphRenderer.cpp
+    src/app/util/DataHandler.cpp
 
     src/core/renderer/geometry/Mesh.cpp
     src/core/renderer/geometry/MeshFactory.cpp
@@ -53,6 +54,14 @@ add_executable(${PROJECT_NAME}
 
 # Ensure C++20 features are available to this target
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
+
+# Compiler flags
+target_compile_options(${PROJECT_NAME} PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/W4 /permissive->
+    $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:
+        -Wall -Wextra -Wpedantic -Wold-style-cast -Wunused -Wcast-align -Wnon-virtual-dtor -Woverloaded-virtual
+    >
+)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     src/app

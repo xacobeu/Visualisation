@@ -21,7 +21,7 @@
 struct MapVertex {
     Vector3 position;
     Vector3 normal;
-    Vector4 color; // RGBA color
+    Vector4 color;
 
     struct Attribute {
         GLuint index;
@@ -40,7 +40,7 @@ namespace mapbox { namespace util {
     template <> struct nth<1, Point> { inline static double get(const Point &t) { return t[1]; }; };
 }}
 
-class MapLayer : public Layer {
+class MapLayer : public Layer, public Unique {
     struct CountryMetadata {
         std::string name;
         std::vector<size_t> globalVertexIndices;
@@ -86,8 +86,33 @@ public:
         }
         selectedCountries.clear();
     }
+    void selectAll() {
+        for (const auto& [id, meta] : countries) {
+            if (selectedCountries.find(id) == selectedCountries.end()) {
+                selectedCountries.insert(id);
+                setCountryColor(id, selectedColor.x, selectedColor.y, selectedColor.z, selectedColor.w);
+            }
+        }
+    }
 
 private:
+
+    struct ViewMetrics {
+        float width;
+        float height;
+        float zoom;
+        float aspect;
+    };
+
+    static constexpr float MAP_HALF_HEIGHT = 5.0f;
+    static constexpr float MAP_HALF_WIDTH = 10.0f;
+    static constexpr float MAP_WIDTH = 20.0f;
+    static constexpr float BASE_CAM_DIST = 15.0f;
+
+    ViewMetrics calculateViewMetrics() const;
+    std::pair<float, float> screenToWorld(double x, double y, const ViewMetrics& vm) const;
+    std::pair<float, float> latLonToWorld(double lon, double lat) const;
+    void constrainPanY(float viewHeight);
 
     std::string mapFilePath;
     std::vector<MapVertex> vertices;
@@ -116,7 +141,6 @@ private:
     // Camera panning offset for infinite tiling
     float panOffsetX = 0.0f;
     float panOffsetY = 0.0f;
-    static constexpr float MAP_WIDTH = 20.0f; // World space width of one map instance (-10 to 10)
 
     // Track initial mouse press position to distinguish click from drag
     double mousePressX = 0.0;

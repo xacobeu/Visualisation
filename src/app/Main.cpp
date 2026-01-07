@@ -1,16 +1,12 @@
 #include "Application.hpp"
-#include "GlobeLayer.hpp"
-#include "UILayer.hpp"
-#include "MapLayer.hpp"
+#include "layers/UILayer.hpp"
+#include "layers/MapLayer.hpp"
 
 int main() {
-    Application app(800, 600, "Visualisation");
-    // app.push(std::make_unique<GlobeLayer>());  // Disabled - showing map instead
 
-    auto mapLayer = std::make_unique<MapLayer>();
-    MapLayer* mapLayerPtr = mapLayer.get(); // Get raw pointer before moving
-    app.push(std::move(mapLayer));
+    Application app{{ .width = 800, .height = 600, .title = "Visualisation" }};
 
-    app.push(std::make_unique<UILayer>(mapLayerPtr));
+    app.push(std::make_unique<MapLayer>());
+    app.push(std::make_unique<UILayer>(app.getLayer<MapLayer>()));
     app.run();
 }

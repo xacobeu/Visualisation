@@ -7,13 +7,59 @@ const std::array<MapVertex::Attribute, 3> MapVertex::attributes = {{
     {2, 4, GL_FLOAT, offsetof(MapVertex, color)}
 }};
 
+MapLayer::ViewMetrics MapLayer::calculateViewMetrics() const {
+    Camera& cam = app->getCamera();
+
+    float h = (float)app->getHeight();
+    if (h < 1.0f) h = 1.0f;
+
+    float aspect = (float)app->getWidth() / h;
+
+    ViewMetrics vm;
+    vm.aspect = aspect;
+    vm.zoom = cam.distance / BASE_CAM_DIST;
+
+    vm.height = MAP_HALF_HEIGHT * vm.zoom;
+    vm.width = vm.height * aspect;
+
+    return vm;
+}
+
+std::pair<float, float> MapLayer::screenToWorld(double x, double y, const ViewMetrics& vm) const {
+
+    float ndcX = (2.0f * (float)x / app->getWidth()) - 1.0f;
+    float ndcY = 1.0f - (2.0f * (float)y / app->getHeight());
+
+    float worldX = ndcX * vm.width + panOffsetX;
+    float worldY = ndcY * vm.height + panOffsetY;
+
+    return {worldX, worldY};
+}
+
+std::pair<float, float> MapLayer::latLonToWorld(double lon, double lat) const {
+    float x = (float)(lon / 180.0 * MAP_HALF_WIDTH);
+    float y = (float)(lat / 90.0 * MAP_HALF_HEIGHT);
+    return {x, y};
+}
+
+void MapLayer::constrainPanY(float viewHeight) {
+    float minY = -MAP_HALF_HEIGHT + viewHeight;
+    float maxY = MAP_HALF_HEIGHT - viewHeight;
+
+    if (minY > maxY) {
+        panOffsetY = 0.0f;
+    } else {
+        if (panOffsetY < minY) panOffsetY = minY;
+        if (panOffsetY > maxY) panOffsetY = maxY;
+    }
+}
+
 void MapLayer::onAttach() {
     vao->create();
     vbo->create();
     ebo->create();
 
     loadAndTriangulate(mapFilePath);
-
     uploadBuffers();
 
     vao->bind();
@@ -23,41 +69,33 @@ void MapLayer::onAttach() {
     for (auto& [id, meta] : countries) {
         setCountryColor(id, defaultColor.x, defaultColor.y, defaultColor.z, defaultColor.w);
     }
-
     uploadBuffers();
 
     Camera& cam = app->getCamera();
-    cam.distance = 15.0f;
+    cam.distance = BASE_CAM_DIST;
     cam.pitch = 0.0f;
     cam.yaw = 0.0f;
 
     setupCallbacks();
 }
 
-void MapLayer::onUpdate(float dt) {
+void MapLayer::onUpdate(float) {
     if (needsBufferUpdate) {
         uploadBuffers();
     }
 }
 
 void MapLayer::onRender(Renderer& renderer) {
-    Camera& cam = app->getCamera();
+    ViewMetrics vm = calculateViewMetrics();
 
-    float aspect = float(app->getWidth()) / float(app->getHeight());
-    float zoom = cam.distance / 15.0f;
-    float orthoHeight = 5.0f * zoom;
-    float orthoWidth = orthoHeight * aspect;
-
-    Matrix4 projection = Matrix4::ortho(-orthoWidth, orthoWidth, -orthoHeight, orthoHeight, -100.0f, 100.0f);
+    Matrix4 projection = Matrix4::ortho(-vm.width, vm.width, -vm.height, vm.height, -100.0f, 100.0f);
     Matrix4 view = Matrix4::identity();
 
     *indexCount = static_cast<int>(indices.size());
 
-    // Render multiple instances of the map for infinite tiling along x-axis
-    // Determine which instances need to be rendered based on camera position
     int centerTile = static_cast<int>(std::floor(panOffsetX / MAP_WIDTH));
 
-    // Render 3 tiles to ensure seamless coverage (left, center, right)
+    // Render 3 tiles for infinite scrolling
     for (int tileOffset = -1; tileOffset <= 1; ++tileOffset) {
         int tileIndex = centerTile + tileOffset;
         float tileX = tileIndex * MAP_WIDTH - panOffsetX;
@@ -97,16 +135,12 @@ void MapLayer::loadAndTriangulate(const std::string& path) {
         meta.name = feature["properties"].value("name", "Unknown");
 
         auto processPolygon = [&](const std::vector<std::vector<Point>>& rings) {
-
             std::vector<uint32_t> localIndices = mapbox::earcut<uint32_t>(rings);
-
             size_t baseIndex = vertices.size();
 
             for (const auto& ring : rings) {
                 for (const auto& p : ring) {
-                    // Project Lat/Lon to World Space (e.g., -10 to 10)
-                    float x = (float)(p[0] / 180.0 * 10.0);
-                    float y = (float)(p[1] / 90.0 * 5.0); // Equirectangular Projection
+                    auto [x, y] = latLonToWorld(p[0], p[1]);
 
                     MapVertex v;
                     v.position = {x, y, 0.0f};
@@ -122,7 +156,6 @@ void MapLayer::loadAndTriangulate(const std::string& path) {
             for (uint32_t idx : localIndices) {
                 indices.push_back(static_cast<uint32_t>(baseIndex + idx));
             }
-
             meta.rawPolygons.push_back(rings[0]);
         };
 
@@ -154,61 +187,37 @@ void MapLayer::loadAndTriangulate(const std::string& path) {
 
 void MapLayer::uploadBuffers() {
     vao->bind();
-
     vbo->bind();
     vbo->data(vertices.size() * sizeof(MapVertex), vertices.data(), GL_DYNAMIC_DRAW);
-
     ebo->bind();
     ebo->data(indices.size() * sizeof(uint32_t), indices.data(), GL_STATIC_DRAW);
-
     vao->unbind();
-
     needsBufferUpdate = false;
 }
 
 void MapLayer::handleMousePicking() {
     auto mx = app->getCursorX();
     auto my = app->getCursorY();
-    int winW = app->getWidth();
-    int winH = app->getHeight();
 
-    // Convert mouse to world coordinates using orthographic projection
-    Camera& cam = app->getCamera();
-    float aspect = float(winW) / float(winH);
+    ViewMetrics vm = calculateViewMetrics();
+    auto [worldX, worldY] = screenToWorld(mx, my, vm);
 
-    // Calculate the same ortho bounds as in rendering
-    float zoom = cam.distance / 15.0f;
-    float orthoHeight = 5.0f * zoom;
-    float orthoWidth = orthoHeight * aspect;
-
-    // Convert mouse position to NDC
-    float ndcX = (2.0f * mx / winW) - 1.0f;
-    float ndcY = 1.0f - (2.0f * my / winH);
-
-    // Convert NDC to world space (accounting for pan offset)
-    float worldX = ndcX * orthoWidth + panOffsetX;
-    float worldY = ndcY * orthoHeight + panOffsetY;
-
-    // Wrap world X to the base map coordinates (-10 to 10)
     float wrappedX = worldX;
-    while (wrappedX < -10.0f) wrappedX += MAP_WIDTH;
-    while (wrappedX > 10.0f) wrappedX -= MAP_WIDTH;
+    while (wrappedX < -MAP_HALF_WIDTH) wrappedX += MAP_WIDTH;
+    while (wrappedX > MAP_HALF_WIDTH) wrappedX -= MAP_WIDTH;
 
     int testedCount = 0;
     for (auto& [id, meta] : countries) {
-
+        // Fast AABB check
         if (!meta.contains(wrappedX, worldY)) continue;
         testedCount++;
 
-        // Raycast.
         bool inside = false;
         for (const auto& poly : meta.rawPolygons) {
             size_t j = poly.size() - 1;
             for (size_t i = 0; i < poly.size(); i++) {
-                float polyXi = (float)(poly[i][0] / 180.0 * 10.0);
-                float polyYi = (float)(poly[i][1] / 90.0 * 5.0);
-                float polyXj = (float)(poly[j][0] / 180.0 * 10.0);
-                float polyYj = (float)(poly[j][1] / 90.0 * 5.0);
+                auto [polyXi, polyYi] = latLonToWorld(poly[i][0], poly[i][1]);
+                auto [polyXj, polyYj] = latLonToWorld(poly[j][0], poly[j][1]);
 
                 if (((polyYi > worldY) != (polyYj > worldY)) &&
                     (wrappedX < (polyXj - polyXi) * (worldY - polyYi) / (polyYj - polyYi) + polyXi)) {
@@ -220,31 +229,21 @@ void MapLayer::handleMousePicking() {
         }
 
         if (inside) {
-
-            // Toggle selection for this country
             if (selectedCountries.find(id) != selectedCountries.end()) {
-                // Already selected - deselect it
-                selectedCountries.erase(id);
-                setCountryColor(id, defaultColor.x, defaultColor.y, defaultColor.z, defaultColor.w);
+                deselectCountry(id);
             } else {
-                // Not selected - select it
                 selectedCountries.insert(id);
                 setCountryColor(id, selectedColor.x, selectedColor.y, selectedColor.z, selectedColor.w);
             }
-
             return;
         }
     }
 }
 
 void MapLayer::setupCallbacks() {
-    app->getWindowEvents().onMouseClick = [this](int button, int action, int mods) {
-
-        if (ImGui::GetIO().WantCaptureMouse) {
-            printf("Imgui captured mouse click\n");
-            return;
-        }
-
+    // Mouse click handling for selection.
+    app->getWindowEvents().onMouseClick = [this](int button, int action, int) {
+        if (ImGui::GetIO().WantCaptureMouse) return;
         if (button != GLFW_MOUSE_BUTTON_LEFT) return;
 
         Camera& cam = app->getCamera();
@@ -252,110 +251,60 @@ void MapLayer::setupCallbacks() {
             cam.dragging = true;
             cam.lastMouseX = app->getCursorX();
             cam.lastMouseY = app->getCursorY();
-
-            // Store initial press position
             mousePressX = cam.lastMouseX;
             mousePressY = cam.lastMouseY;
         } else if (action == GLFW_RELEASE) {
-            // Check if mouse moved significantly from initial press position
-            double currentX = app->getCursorX();
-            double currentY = app->getCursorY();
-            double dx = currentX - mousePressX;
-            double dy = currentY - mousePressY;
-            double distanceSquared = dx * dx + dy * dy;
-
             cam.dragging = false;
-
-            // Only handle picking if mouse didn't move much (threshold: 5 pixels)
-            if (distanceSquared < 25.0) {
+            double dx = app->getCursorX() - mousePressX;
+            double dy = app->getCursorY() - mousePressY;
+            if ((dx * dx + dy * dy) < 25.0) {
                 handleMousePicking();
             }
         }
     };
 
-    app->getWindowEvents().onScroll = [this](double xoffset, double yoffset) {
+    // Zooming in and out.
+    app->getWindowEvents().onScroll = [this](double, double yoffset) {
         Camera& cam = app->getCamera();
 
-        // Get mouse position in world space BEFORE zoom
-        auto mx = app->getCursorX();
-        auto my = app->getCursorY();
-        int winW = app->getWidth();
-        int winH = app->getHeight();
+        ViewMetrics oldVm = calculateViewMetrics();
+        auto [worldXBefore, worldYBefore] = screenToWorld(app->getCursorX(), app->getCursorY(), oldVm);
 
-        float aspect = float(winW) / float(winH);
-        float oldZoom = cam.distance / 15.0f;
-        float oldOrthoHeight = 5.0f * oldZoom;
-        float oldOrthoWidth = oldOrthoHeight * aspect;
-
-        // Mouse position in NDC
-        float ndcX = (2.0f * mx / winW) - 1.0f;
-        float ndcY = 1.0f - (2.0f * my / winH);
-
-        // World position before zoom (relative to current pan offset)
-        float worldXBefore = ndcX * oldOrthoWidth + panOffsetX;
-        float worldYBefore = ndcY * oldOrthoHeight + panOffsetY;
-
-        // Store old distance to potentially revert
         float oldDistance = cam.distance;
-
-        // Apply zoom
         cam.zoom(float(yoffset));
 
-        // Get mouse position in world space AFTER zoom
-        float newZoom = cam.distance / 15.0f;
-        float newOrthoHeight = 5.0f * newZoom;
-        float newOrthoWidth = newOrthoHeight * aspect;
-
-        // Check if the new zoom level would exceed vertical bounds (map height is 10 units: -5 to 5)
-        if (newOrthoHeight >= 5.0f) {
-            // Revert zoom - viewport would be too large
-            cam.distance = oldDistance;
+        ViewMetrics newVm = calculateViewMetrics();
+        if (newVm.height >= MAP_HALF_HEIGHT) {
+            cam.distance = oldDistance; // Revert
             return;
         }
 
-        float worldXAfter = ndcX * newOrthoWidth + panOffsetX;
-        float worldYAfter = ndcY * newOrthoHeight + panOffsetY;
+        auto [worldXAfter, worldYAfter] = screenToWorld(app->getCursorX(), app->getCursorY(), newVm);
 
-        // Adjust pan offset to keep the mouse cursor over the same world position
         panOffsetX += (worldXBefore - worldXAfter);
         panOffsetY += (worldYBefore - worldYAfter);
 
-        // Clamp vertical panning to map bounds after zoom
-        float minY = -5.0f + newOrthoHeight;
-        float maxY = 5.0f - newOrthoHeight;
-
-        if (panOffsetY < minY) panOffsetY = minY;
-        if (panOffsetY > maxY) panOffsetY = maxY;
+        constrainPanY(newVm.height);
     };
 
+    // Dragging left and right.
     app->getWindowEvents().onMouseMove = [this](double x, double y) {
         Camera& cam = app->getCamera();
         if (cam.dragging) {
-            // Calculate mouse delta
+            ViewMetrics vm = calculateViewMetrics();
+
             double dx = x - cam.lastMouseX;
             double dy = y - cam.lastMouseY;
+            float worldDx = (float)(dx / app->getWidth()) * (2.0f * vm.width);
+            float worldDy = (float)(dy / app->getHeight()) * (2.0f * vm.height);
+
+            panOffsetX -= worldDx;
+            panOffsetY += worldDy;
+
+            constrainPanY(vm.height);
 
             cam.lastMouseX = x;
             cam.lastMouseY = y;
-
-            // Convert pixel delta to world space delta
-            float aspect = float(app->getWidth()) / float(app->getHeight());
-            float zoom = cam.distance / 15.0f;
-            float orthoHeight = 5.0f * zoom;
-            float orthoWidth = orthoHeight * aspect;
-
-            // Update pan offsets (inverted for natural dragging)
-            panOffsetX -= (float)(dx / app->getWidth() * 2.0 * orthoWidth);
-            panOffsetY += (float)(dy / app->getHeight() * 2.0 * orthoHeight);
-
-            // Clamp vertical panning to map bounds (-5 to 5 in world space)
-            // Account for the current view height to prevent going past edges
-            float minY = -5.0f + orthoHeight;
-            float maxY = 5.0f - orthoHeight;
-
-            if (panOffsetY < minY) panOffsetY = minY;
-            if (panOffsetY > maxY) panOffsetY = maxY;
         }
     };
 }
-
