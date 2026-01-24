@@ -38,6 +38,14 @@ private:
                             const std::vector<std::string>& labels,
                             const std::vector<PlotSeries>& data);
 
+    struct RadarFeature {
+        int id;
+        std::string label;
+        PlotSeries series;
+    };
+    static std::vector<RadarFeature> g_AvailableFeatures;
+    static std::vector<RadarFeature> g_ActiveFeatures;
+
     static void RenderRadar(const GraphSpec& spec,
                             const std::vector<std::string>& labels,
                             const std::vector<PlotSeries>& data);
@@ -47,4 +55,12 @@ private:
     static void AddTextRotated(void* drawListPtr, void* fontPtr, float fontSize,
                                float posX, float posY, unsigned int col,
                                const char* text, float angle);
+
+    // SPLOM drag selection state
+    static bool s_IsDragging;
+    static bool s_HasSelection;
+    static float s_DragStartX, s_DragStartY;
+    static float s_DragEndX, s_DragEndY;
+    static int s_DragPlotRow, s_DragPlotCol;
+    static std::vector<bool> s_HighlightedPoints;
 };

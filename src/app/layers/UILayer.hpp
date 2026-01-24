@@ -19,6 +19,7 @@ private:
     // UI Setup Helpers
     void setupDockspace();
     void renderSelectionList();
+    void renderChoroplethControls();
     void renderFPSDisplay() const;
     void addSeparatorText(const std::string text) const;
     void renderLoadingScreen();
@@ -28,6 +29,11 @@ private:
     std::unique_ptr<DataHandler> dataManager;
     bool dataInitialized = false;
     bool loadingScreenShown = false;
+    
+    // Choropleth state
+    int selectedChoroplethColumn = -1;
+    std::vector<std::string> availableColumns;
+    int currentMapTab = 0;  // 0 = Selection, 1 = Choropleth
 
     // Graph Specifications (Configuration)
     GraphSpec radarSpec;

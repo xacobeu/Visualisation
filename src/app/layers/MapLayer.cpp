@@ -1,5 +1,6 @@
 #include "MapLayer.hpp"
 #include "imgui.h"
+#include <limits>
 
 const std::array<MapVertex::Attribute, 3> MapVertex::attributes = {{
     {0, 3, GL_FLOAT, offsetof(MapVertex, position)},
@@ -66,8 +67,10 @@ void MapLayer::onAttach() {
     vao->setLayout<MapVertex>();
     vao->unbind();
 
+    // Set all countries to green
     for (auto& [id, meta] : countries) {
-        setCountryColor(id, defaultColor.x, defaultColor.y, defaultColor.z, defaultColor.w);
+        countryColors[id] = DEFAULT_COUNTRY_COLOR;
+        setCountryColor(id, DEFAULT_COUNTRY_COLOR.x, DEFAULT_COUNTRY_COLOR.y, DEFAULT_COUNTRY_COLOR.z, DEFAULT_COUNTRY_COLOR.w);
     }
     uploadBuffers();
 
@@ -77,6 +80,78 @@ void MapLayer::onAttach() {
     cam.yaw = 0.0f;
 
     setupCallbacks();
+}
+
+Vector4 MapLayer::valueToColor(float normalized) const {
+    // Two-color gradient: light blue (low) -> dark blue (high)
+    // Clamp to 0-1
+    normalized = std::max(0.0f, std::min(1.0f, normalized));
+    
+    // Light blue: (0.8, 0.9, 1.0) -> Dark blue: (0.1, 0.2, 0.6)
+    float r = 0.8f - normalized * 0.7f;  // 0.8 -> 0.1
+    float g = 0.9f - normalized * 0.7f;  // 0.9 -> 0.2
+    float b = 1.0f - normalized * 0.4f;  // 1.0 -> 0.6
+    
+    return {r, g, b, 1.0f};
+}
+
+void MapLayer::applyChoropleth(const std::unordered_map<std::string, float>& countryValues, const std::string& unit) {
+    if (countryValues.empty()) return;
+    
+    // Find min and max values for normalization
+    float minVal = std::numeric_limits<float>::max();
+    float maxVal = std::numeric_limits<float>::lowest();
+    
+    for (const auto& [isoCode, value] : countryValues) {
+        if (countries.find(isoCode) != countries.end()) {
+            minVal = std::min(minVal, value);
+            maxVal = std::max(maxVal, value);
+        }
+    }
+    
+    float range = maxVal - minVal;
+    if (range < 0.0001f) range = 1.0f;  // Avoid division by zero
+    
+    choroplethActive = true;
+    choroplethColors.clear();
+    choroplethValues = countryValues;  // Store raw values for tooltips
+    choroplethUnit = unit;  // Store unit for tooltip display
+    
+    // Apply colors based on normalized values
+    for (const auto& [id, meta] : countries) {
+        auto it = countryValues.find(id);
+        if (it != countryValues.end()) {
+            float normalized = (it->second - minVal) / range;
+            Vector4 col = valueToColor(normalized);
+            choroplethColors[id] = col;
+            
+            // Apply choropleth color to all countries (including selected ones)
+            setCountryColor(id, col.x, col.y, col.z, col.w);
+        } else {
+            // No data - use gray
+            choroplethColors[id] = NO_DATA_COUNTRY_COLOR;
+            setCountryColor(id, NO_DATA_COUNTRY_COLOR.x, NO_DATA_COUNTRY_COLOR.y, NO_DATA_COUNTRY_COLOR.z, NO_DATA_COUNTRY_COLOR.w);
+        }
+    }
+}
+
+void MapLayer::clearChoropleth() {
+    choroplethActive = false;
+    choroplethColors.clear();
+    choroplethValues.clear();
+    choroplethUnit.clear();
+    
+    // Restore original colors
+    Vector4 greenColor = {0.4f, 0.7f, 0.4f, 1.0f};  // Light green
+    for (const auto& [id, meta] : countries) {
+        if (selectedCountries.find(id) != selectedCountries.end()) {
+            // Restore selected color for selected countries
+            setCountryColor(id, SELECTED_COUNTRY_COLOR.x, SELECTED_COUNTRY_COLOR.y, SELECTED_COUNTRY_COLOR.z, SELECTED_COUNTRY_COLOR.w);
+        } else {
+            const Vector4& col = countryColors.count(id) ? countryColors.at(id) : greenColor;
+            setCountryColor(id, col.x, col.y, col.z, col.w);
+        }
+    }
 }
 
 void MapLayer::onUpdate(float) {
@@ -233,11 +308,49 @@ void MapLayer::handleMousePicking() {
                 deselectCountry(id);
             } else {
                 selectedCountries.insert(id);
-                setCountryColor(id, selectedColor.x, selectedColor.y, selectedColor.z, selectedColor.w);
+                setCountryColor(id, SELECTED_COUNTRY_COLOR.x, SELECTED_COUNTRY_COLOR.y, SELECTED_COUNTRY_COLOR.z, SELECTED_COUNTRY_COLOR.w);
             }
             return;
         }
     }
+}
+
+std::string MapLayer::getCountryAtCursor() const {
+    auto mx = app->getCursorX();
+    auto my = app->getCursorY();
+
+    ViewMetrics vm = calculateViewMetrics();
+    auto [worldX, worldY] = screenToWorld(mx, my, vm);
+
+    float wrappedX = worldX;
+    while (wrappedX < -MAP_HALF_WIDTH) wrappedX += MAP_WIDTH;
+    while (wrappedX > MAP_HALF_WIDTH) wrappedX -= MAP_WIDTH;
+
+    for (const auto& [id, meta] : countries) {
+        // Fast AABB check
+        if (!meta.contains(wrappedX, worldY)) continue;
+
+        bool inside = false;
+        for (const auto& poly : meta.rawPolygons) {
+            size_t j = poly.size() - 1;
+            for (size_t i = 0; i < poly.size(); i++) {
+                auto [polyXi, polyYi] = latLonToWorld(poly[i][0], poly[i][1]);
+                auto [polyXj, polyYj] = latLonToWorld(poly[j][0], poly[j][1]);
+
+                if (((polyYi > worldY) != (polyYj > worldY)) &&
+                    (wrappedX < (polyXj - polyXi) * (worldY - polyYi) / (polyYj - polyYi) + polyXi)) {
+                    inside = !inside;
+                }
+                j = i;
+            }
+            if (inside) break;
+        }
+
+        if (inside) {
+            return id;
+        }
+    }
+    return "";
 }
 
 void MapLayer::setupCallbacks() {
@@ -257,7 +370,7 @@ void MapLayer::setupCallbacks() {
             cam.dragging = false;
             double dx = app->getCursorX() - mousePressX;
             double dy = app->getCursorY() - mousePressY;
-            if ((dx * dx + dy * dy) < 25.0) {
+            if ((dx * dx + dy * dy) < 25.0 && selectionEnabled) {
                 handleMousePicking();
             }
         }

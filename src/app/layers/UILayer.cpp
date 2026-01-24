@@ -13,16 +13,22 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
     radarSpec.xLabel = "Metrics";
     radarSpec.yLabel = "Values";
     radarSpec.series.columns = {
-        "telephone_fixed_subscriptions_total",
-        "mobile_cellular_subscriptions_total",
-        "internet_users_total",
-        "broadband_fixed_subscriptions_total"
+        "Real_GDP_PPP_billion_USD",
+        "Real_GDP_per_Capita_USD",
+        "Budget_billion_USD",
+        "Budget_Surplus_billion_USD",
+        "Exports_billion_USD",
+        "Imports_billion_USD",
+        "Exchange_Rate_per_USD",
     };
     radarSpec.series.labels = {
-        "Fixed Telephone",
-        "Mobile Cellular",
-        "Internet Users",
-        "Broadband Fixed"
+        "GDP (PPP) (billion USD)",
+        "GDP per Capita (USD)",
+        "Budget (billion USD)",
+        "Budget Surplus (billion USD)",
+        "Exports (billion USD)",
+        "Imports (billion USD)",
+        "Exchange Rate (per USD)"
     };
 
     // SPLOM Graph Spec
@@ -43,37 +49,6 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
         "Public Debt"
     };
 
-    // Bar Chart Spec
-    barSpec.type = GraphType::Bar;
-    barSpec.title = "Energy Consumption";
-    barSpec.xLabel = "Countries";
-    barSpec.yLabel = "Energy Metrics";
-    barSpec.series.columns = {
-        "electricity_generating_capacity_kW",
-        "coal_metric_tons",
-        "petroleum_bbl_per_day",
-        "natural_gas_cubic_meters"
-    };
-    barSpec.series.labels = {
-        "Electricity Capacity",
-        "Coal",
-        "Petroleum",
-        "Natural Gas"
-    };
-
-    // Scatter Plot Spec
-    scatterSpec.type = GraphType::Scatter;
-    scatterSpec.title = "Geography vs Government";
-    scatterSpec.xLabel = "Area (sq km)";
-    scatterSpec.yLabel = "Suffrage Age (years)";
-    scatterSpec.series.columns = {
-        "Area_Total",
-        "Suffrage_Age"
-    };
-    scatterSpec.series.labels = {
-        "Area",
-        "Suffrage Age"
-    };
 }
 
 void UILayer::onUpdate(float) {
@@ -87,18 +62,50 @@ void UILayer::onUpdate(float) {
     // Lazy initialization of data after loading screen is shown
     if (!dataInitialized) {
         dataManager->init();
+        availableColumns = dataManager->getAvailableColumns();
+        std::sort(availableColumns.begin(), availableColumns.end());
         dataInitialized = true;
     }
 
     setupDockspace();
 
-    // --- Side Panel: Country Selection ---
-    if (ImGui::Begin("Country Selection")) {
+    // --- Side Panel: Map Controls ---
+    if (ImGui::Begin("Map Controls")) {
         renderFPSDisplay();
         ImGui::Separator();
-        renderSelectionList();
-        ImGui::End();
+        
+        // Map mode tabs
+        addSeparatorText("Map Mode");
+        
+        if (ImGui::BeginTabBar("MapModeTabs")) {
+            if (ImGui::BeginTabItem("Selection")) {
+                if (currentMapTab != 0) {
+                    currentMapTab = 0;
+                    mapLayer->setSelectionEnabled(true);
+                    mapLayer->clearChoropleth();
+                    selectedChoroplethColumn = -1;
+                }
+                ImGui::Spacing();
+                ImGui::TextDisabled("Click on countries to select them.");
+                ImGui::Separator();
+                renderSelectionList();
+                ImGui::EndTabItem();
+            }
+            
+            if (ImGui::BeginTabItem("Choropleth")) {
+                if (currentMapTab != 1) {
+                    currentMapTab = 1;
+                    mapLayer->setSelectionEnabled(false);
+                }
+                ImGui::Spacing();
+                renderChoroplethControls();
+                ImGui::EndTabItem();
+            }
+            
+            ImGui::EndTabBar();
+        }
     }
+    ImGui::End();
 
     // --- Main Panel: Graphs ---
     if (ImGui::Begin("Graphs")) {
@@ -117,31 +124,128 @@ void UILayer::onUpdate(float) {
             }
             std::sort(countryNames.begin(), countryNames.end());
 
-            // Radar
-            auto radarData = dataManager->collectSeries(countryNames, radarSpec.series.columns);
-            GraphRenderer::Render(radarSpec, countryNames, radarData);
-
-            ImGui::Separator();
-
             // SPLOM
             auto splomData = dataManager->collectSeries(countryNames, splomSpec.series.columns);
             GraphRenderer::Render(splomSpec, countryNames, splomData);
 
             ImGui::Separator();
 
-            // Bar Chart
-            auto barData = dataManager->collectSeries(countryNames, barSpec.series.columns);
-            GraphRenderer::Render(barSpec, countryNames, barData);
+            // Radar
+            auto radarData = dataManager->collectSeries(countryNames, radarSpec.series.columns);
+            GraphRenderer::Render(radarSpec, countryNames, radarData);
 
             ImGui::Separator();
 
-            // Scatter Plot
-            auto scatterData = dataManager->collectSeries(countryNames, scatterSpec.series.columns);
-            GraphRenderer::Render(scatterSpec, countryNames, scatterData);
+            // TODO: Treemap
+
         }
-        ImGui::End();
+    }
+    ImGui::End();
+
+    // --- Hover Tooltip for Map ---
+    // Only show if mouse is not over ImGui windows
+    if (!ImGui::GetIO().WantCaptureMouse) {
+        std::string hoveredCountry = mapLayer->getCountryAtCursor();
+        if (!hoveredCountry.empty()) {
+            std::string countryName = mapLayer->getCountryName(hoveredCountry);
+            
+            ImGui::BeginTooltip();
+            ImGui::Text("%s", countryName.c_str());
+            
+            // Show choropleth value if active
+            if (mapLayer->isChoroplethActive()) {
+                float value;
+                if (mapLayer->getChoroplethValue(hoveredCountry, value)) {
+                    std::string metricName = (selectedChoroplethColumn >= 0 && selectedChoroplethColumn < (int)availableColumns.size())
+                        ? availableColumns[selectedChoroplethColumn]
+                        : "Value";
+                    const std::string& unit = mapLayer->getChoroplethUnit();
+                    if (!unit.empty()) {
+                        ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), "%s: %.2f %s", metricName.c_str(), value, unit.c_str());
+                    } else {
+                        ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), "%s: %.2f", metricName.c_str(), value);
+                    }
+                } else {
+                    ImGui::TextDisabled("No data available");
+                }
+            }
+            
+            ImGui::EndTooltip();
+        }
     }
 
+}
+
+void UILayer::renderChoroplethControls() {
+    ImGui::TextDisabled("Color map by data metric:");
+    
+    // Combo box for selecting the column
+    const char* previewValue = (selectedChoroplethColumn >= 0 && selectedChoroplethColumn < (int)availableColumns.size())
+        ? availableColumns[selectedChoroplethColumn].c_str()
+        : "Select metric...";
+    
+    if (ImGui::BeginCombo("##ChoroplethMetric", previewValue)) {
+        for (int i = 0; i < (int)availableColumns.size(); ++i) {
+            bool isSelected = (selectedChoroplethColumn == i);
+            if (ImGui::Selectable(availableColumns[i].c_str(), isSelected)) {
+                selectedChoroplethColumn = i;
+                
+                // Apply choropleth with unit
+                auto columnData = dataManager->getColumnWithUnitForAllCountries(availableColumns[i]);
+                
+                // Convert country names to ISO codes
+                std::unordered_map<std::string, float> isoData;
+                for (const auto& [countryName, value] : columnData.values) {
+                    std::string isoCode = mapLayer->getIsoCodeFromName(countryName);
+                    if (!isoCode.empty()) {
+                        isoData[isoCode] = value;
+                    }
+                }
+                
+                mapLayer->applyChoropleth(isoData, columnData.unit);
+            }
+            if (isSelected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
+    
+    // Clear button
+    if (mapLayer->isChoroplethActive()) {
+        
+        // Color legend
+        ImGui::Spacing();
+        ImGui::TextDisabled("Legend:");
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        float width = ImGui::GetContentRegionAvail().x;
+        float height = 15.0f;
+        
+        // Draw gradient bar
+        int segments = 50;
+        float segWidth = width / segments;
+        for (int i = 0; i < segments; ++i) {
+            float t = (float)i / (segments - 1);
+            
+            // Two-color gradient: light blue -> dark blue
+            float r = 0.8f - t * 0.7f;
+            float g = 0.9f - t * 0.7f;
+            float b = 1.0f - t * 0.4f;
+            
+            ImU32 col = IM_COL32((int)(r*255), (int)(g*255), (int)(b*255), 255);
+            drawList->AddRectFilled(
+                ImVec2(pos.x + i * segWidth, pos.y),
+                ImVec2(pos.x + (i + 1) * segWidth, pos.y + height),
+                col
+            );
+        }
+        
+        ImGui::Dummy(ImVec2(width, height));
+        ImGui::TextDisabled("Low");
+        ImGui::SameLine(width - ImGui::CalcTextSize("High").x);
+        ImGui::TextDisabled("High");
+    }
 }
 
 void UILayer::renderSelectionList() {
@@ -152,49 +256,53 @@ void UILayer::renderSelectionList() {
     if (selectedCountries.empty()) {
         ImGui::TextDisabled("No countries selected (Click on countries to select them)");
     } else {
-        ImGui::BeginChild("CountryList", ImVec2(0, 200), true);
+        if (ImGui::BeginChild("CountryList", ImVec2(0, 200), true))
+        {
+            std::string toDeselect = "";
 
-        std::string toDeselect = "";
+            for (const auto& countryId : selectedCountries) {
+                std::string countryName = mapLayer->getCountryName(countryId);
 
-        for (const auto& countryId : selectedCountries) {
-            std::string countryName = mapLayer->getCountryName(countryId);
+                ImGui::PushID(countryId.c_str());
+                ImGui::Text("%s", countryName.c_str());
 
-            ImGui::PushID(countryId.c_str());
-            ImGui::Text("%s", countryName.c_str());
+                // Right-align the X button
+                float buttonWidth = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - buttonWidth);
 
-            // Right-align the X button
-            float buttonWidth = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2.0f;
-            ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - buttonWidth);
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
 
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
+                if (ImGui::SmallButton("X")) {
+                    toDeselect = countryId;
+                }
 
-            if (ImGui::SmallButton("X")) {
-                toDeselect = countryId;
+                ImGui::PopStyleColor(3);
+                ImGui::PopID();
             }
 
-            ImGui::PopStyleColor(3);
-            ImGui::PopID();
+            // Handle deselction after loop to avoid iterator invalidation
+            if (!toDeselect.empty()) {
+                mapLayer->deselectCountry(toDeselect);
+            }
         }
         ImGui::EndChild();
 
-        // Handle deselction after loop to avoid iterator invalidation
-        if (!toDeselect.empty()) {
-            mapLayer->deselectCountry(toDeselect);
-        }
-
-        // Action Buttons
+        // Clear All button (only when there are selections)
         if (ImGui::Button("Clear All")) {
             mapLayer->clearSelection();
         }
+        ImGui::SameLine();
+    }
 
-        float buttonWidth = ImGui::CalcTextSize("Clear All").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+    // Select All button (always visible)
+    if (!selectedCountries.empty()) {
+        float buttonWidth = ImGui::CalcTextSize("Select All").x + ImGui::GetStyle().FramePadding.x * 2.0f;
         ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - buttonWidth - 7.0f);
-
-        if (ImGui::Button("Select All")) {
-            mapLayer->selectAll();
-        }
+    }
+    if (ImGui::Button("Select All")) {
+        mapLayer->selectAll();
     }
 }
 

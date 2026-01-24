@@ -21,6 +21,7 @@ struct DataValue {
 
 struct PlotSeries {
     std::string name;
+    std::string unit;  // Unit for this series (extracted from column name or data)
     std::vector<float> values;
 };
 
@@ -34,6 +35,19 @@ public:
         const std::vector<std::string>& countries,
         const std::vector<std::string>& columns
     );
+    
+    // Get data for all countries for a single column (for choropleth)
+    std::unordered_map<std::string, float> getColumnForAllCountries(const std::string& column);
+    
+    // Get data with units for all countries for a single column (for choropleth with tooltip units)
+    struct ColumnData {
+        std::unordered_map<std::string, float> values;
+        std::string unit;  // Common unit for this column (from first non-empty entry)
+    };
+    ColumnData getColumnWithUnitForAllCountries(const std::string& column);
+    
+    // Get all available columns
+    std::vector<std::string> getAvailableColumns() const;
 
 private:
     void loadFromCSV(std::string file, std::vector<std::string> columns);
@@ -44,9 +58,10 @@ private:
     std::unordered_map<std::string, std::unordered_map<std::string, DataValue>> loadedData;
 
     // Constants
-    static constexpr const char* COMMUNICATIONS_CSV_PATH = "res/data/clean/communications.csv";
-    static constexpr const char* ECONOMY_CSV_PATH = "res/data/clean/economy.csv";
-    static constexpr const char* ENERGY_CSV_PATH = "res/data/clean/energy.csv";
-    static constexpr const char* GEOGRAPHY_CSV_PATH = "res/data/clean/geography.csv";
-    static constexpr const char* GOVERNMENT_CSV_PATH = "res/data/clean/government.csv";
+    static constexpr const char* COMMUNICATIONS_CSV_PATH = "res/data/cleaned_data_communications.csv";
+    static constexpr const char* DEMOGRAPHICS_CSV_PATH = "res/data/cleaned_data_demographics.csv";
+    static constexpr const char* ECONOMY_CSV_PATH = "res/data/cleaned_data_economy.csv";
+    static constexpr const char* ENERGY_CSV_PATH = "res/data/cleaned_data_energy.csv";
+    static constexpr const char* GEOGRAPHY_CSV_PATH = "res/data/cleaned_data_geography.csv";
+    static constexpr const char* GOVERNMENT_CSV_PATH = "res/data/cleaned_data_government.csv";
 };

@@ -46,7 +46,7 @@ class MapLayer : public Layer, public Unique {
         std::vector<size_t> globalVertexIndices;
         std::vector<std::vector<Point>> rawPolygons;
 
-        // Bounding Box for optimization
+        // Bounding Box
         double minX = 1000, maxX = -1000, minY = 1000, maxY = -1000;
 
         void updateBounds(double x, double y) {
@@ -77,12 +77,26 @@ public:
     void deselectCountry(const std::string& isoCode) {
         if (selectedCountries.find(isoCode) != selectedCountries.end()) {
             selectedCountries.erase(isoCode);
-            setCountryColor(isoCode, defaultColor.x, defaultColor.y, defaultColor.z, defaultColor.w);
+            // Use choropleth color if active, otherwise use default green color
+            if (choroplethActive && choroplethColors.count(isoCode)) {
+                const Vector4& col = choroplethColors.at(isoCode);
+                setCountryColor(isoCode, col.x, col.y, col.z, col.w);
+            } else {
+                const Vector4& col = countryColors.count(isoCode) ? countryColors.at(isoCode) : DEFAULT_COUNTRY_COLOR;
+                setCountryColor(isoCode, col.x, col.y, col.z, col.w);
+            }
         }
     }
     void clearSelection() {
         for (const auto& countryId : selectedCountries) {
-            setCountryColor(countryId, defaultColor.x, defaultColor.y, defaultColor.z, defaultColor.w);
+            // Use choropleth color if active, otherwise use default green color
+            if (choroplethActive && choroplethColors.count(countryId)) {
+                const Vector4& col = choroplethColors.at(countryId);
+                setCountryColor(countryId, col.x, col.y, col.z, col.w);
+            } else {
+                const Vector4& col = countryColors.count(countryId) ? countryColors.at(countryId) : DEFAULT_COUNTRY_COLOR;
+                setCountryColor(countryId, col.x, col.y, col.z, col.w);
+            }
         }
         selectedCountries.clear();
     }
@@ -90,10 +104,50 @@ public:
         for (const auto& [id, meta] : countries) {
             if (selectedCountries.find(id) == selectedCountries.end()) {
                 selectedCountries.insert(id);
-                setCountryColor(id, selectedColor.x, selectedColor.y, selectedColor.z, selectedColor.w);
+                setCountryColor(id, SELECTED_COUNTRY_COLOR.x, SELECTED_COUNTRY_COLOR.y, SELECTED_COUNTRY_COLOR.z, SELECTED_COUNTRY_COLOR.w);
             }
         }
     }
+    
+    // Choropleth methods
+    void applyChoropleth(const std::unordered_map<std::string, float>& countryValues, const std::string& unit = "");
+    void clearChoropleth();
+    bool isChoroplethActive() const { return choroplethActive; }
+    const std::string& getChoroplethUnit() const { return choroplethUnit; }
+    
+    // Hover detection - returns country ISO code under cursor, or empty string
+    std::string getCountryAtCursor() const;
+    
+    // Get choropleth value for a country (returns false if no data)
+    bool getChoroplethValue(const std::string& isoCode, float& outValue) const {
+        auto it = choroplethValues.find(isoCode);
+        if (it != choroplethValues.end()) {
+            outValue = it->second;
+            return true;
+        }
+        return false;
+    }
+    
+    // Get all country ISO codes
+    std::vector<std::string> getAllCountryIsoCodes() const {
+        std::vector<std::string> codes;
+        for (const auto& [id, meta] : countries) {
+            codes.push_back(id);
+        }
+        return codes;
+    }
+    
+    // Get ISO code from country name
+    std::string getIsoCodeFromName(const std::string& name) const {
+        for (const auto& [id, meta] : countries) {
+            if (meta.name == name) return id;
+        }
+        return "";
+    }
+    
+    // Selection control
+    void setSelectionEnabled(bool enabled) { selectionEnabled = enabled; }
+    bool isSelectionEnabled() const { return selectionEnabled; }
 
 private:
 
@@ -121,13 +175,28 @@ private:
 
     // Selection tracking (multiple countries can be selected)
     std::unordered_set<std::string> selectedCountries;
-    Vector4 defaultColor = {0.1f, 0.6f, 0.4f, 1.0f};
-    Vector4 selectedColor = {0.1f, 0.5f, 0.4f, 1.0f};
+    static constexpr const Vector4 DEFAULT_COUNTRY_COLOR = {0.4f, 0.6f, 0.4f, 1.0f};
+    static constexpr const Vector4 SELECTED_COUNTRY_COLOR = {0.886f, 0.714f, 1.0f, 1.0f};
+    static constexpr const Vector4 NO_DATA_COUNTRY_COLOR = {0.3f, 0.3f, 0.3f, 1.0f};
+    
+    // Default country colors
+    std::unordered_map<std::string, Vector4> countryColors;  // Base colors for each country
+    
+    // Choropleth state
+    bool choroplethActive = false;
+    std::unordered_map<std::string, Vector4> choroplethColors;  // Colors when choropleth is active
+    std::unordered_map<std::string, float> choroplethValues;    // Raw values for tooltips
+    std::string choroplethUnit;  // Unit for choropleth values (for tooltip display)
+    
+    // Selection enabled state
+    bool selectionEnabled = true;
+
+    Vector4 valueToColor(float normalized) const;  // Maps 0-1 to color gradient
 
     // Engine Resources
     static constexpr const char* VERTEX_PATH = "shaders/mapvert.glsl";
     static constexpr const char* FRAGMENT_PATH = "shaders/mapfrag.glsl";
-    static constexpr const char* GEOJSON_PATH = "res/data/custom.geo.json";
+    static constexpr const char* GEOJSON_PATH = "res/data/10m.json";
 
     std::shared_ptr<GL::Shader> shader = std::make_shared<GL::Shader>(VERTEX_PATH, FRAGMENT_PATH);
     std::shared_ptr<GL::VertexArray> vao = std::make_shared<GL::VertexArray>();
