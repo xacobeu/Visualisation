@@ -3,6 +3,8 @@
 
 #include <imgui.h>
 #include <algorithm>
+#include <cstring> // For memset, strncpy
+#include <iostream>
 
 UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
     dataManager = std::make_unique<DataHandler>();
@@ -49,6 +51,13 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
         "Public Debt"
     };
 
+    // Treemap Spec
+    treemapSpec.type = GraphType::TreeMap;
+    treemapSpec.title = "Economy Treemap (Sized by GDP)";
+    treemapSpec.xLabel = "";
+    treemapSpec.yLabel = "";
+    treemapSpec.series.columns = { "Real_GDP_PPP_billion_USD" };
+    treemapSpec.series.labels = { "Real GDP (PPP)" };
 }
 
 void UILayer::onUpdate(float) {
@@ -64,6 +73,11 @@ void UILayer::onUpdate(float) {
         dataManager->init();
         availableColumns = dataManager->getAvailableColumns();
         std::sort(availableColumns.begin(), availableColumns.end());
+        
+        // Cache names for validation
+        cachedCountryNames = dataManager->getAllCountryNames(); 
+        std::sort(cachedCountryNames.begin(), cachedCountryNames.end());
+        
         dataInitialized = true;
     }
 
@@ -107,10 +121,34 @@ void UILayer::onUpdate(float) {
     }
     ImGui::End();
 
+    // --- Determine Highlighted Country ---
+    // Priority: Mouse Hover > Search Bar result
+    std::string highlightCountry = "";
+    
+    // 1. Check Search Bar (Exact Match Logic)
+    if (strlen(searchBuffer) > 0) {
+         std::string s(searchBuffer);
+         // Check if the buffer matches a known country exactly
+         if (std::find(cachedCountryNames.begin(), cachedCountryNames.end(), s) != cachedCountryNames.end()) {
+             highlightCountry = s;
+         }
+    }
+
+    // 2. Check Mouse Hover (Overrides Search for visual feedback)
+    if (!ImGui::GetIO().WantCaptureMouse) {
+        std::string hovered = mapLayer->getCountryAtCursor();
+        if (!hovered.empty()) {
+            highlightCountry = mapLayer->getCountryName(hovered);
+        }
+    }
+
     // --- Main Panel: Graphs ---
     if (ImGui::Begin("Graphs")) {
 
-        // Get Selected Countries from MapLayer.
+        // --- SEARCH BAR (Now filters selected countries only) ---
+        renderSearchBar();
+        ImGui::Separator();
+
         const auto& selectedIds = mapLayer->getSelectedCountries();
 
         if (selectedIds.empty()) {
@@ -126,24 +164,24 @@ void UILayer::onUpdate(float) {
 
             // SPLOM
             auto splomData = dataManager->collectSeries(countryNames, splomSpec.series.columns);
-            GraphRenderer::Render(splomSpec, countryNames, splomData);
+            GraphRenderer::Render(splomSpec, countryNames, splomData, highlightCountry);
 
             ImGui::Separator();
 
             // Radar
             auto radarData = dataManager->collectSeries(countryNames, radarSpec.series.columns);
-            GraphRenderer::Render(radarSpec, countryNames, radarData);
+            GraphRenderer::Render(radarSpec, countryNames, radarData, highlightCountry);
 
             ImGui::Separator();
 
-            // TODO: Treemap
-
+            // Treemap
+            auto treemapData = dataManager->collectSeries(countryNames, treemapSpec.series.columns);
+            GraphRenderer::Render(treemapSpec, countryNames, treemapData, highlightCountry);
         }
     }
     ImGui::End();
 
     // --- Hover Tooltip for Map ---
-    // Only show if mouse is not over ImGui windows
     if (!ImGui::GetIO().WantCaptureMouse) {
         std::string hoveredCountry = mapLayer->getCountryAtCursor();
         if (!hoveredCountry.empty()) {
@@ -152,7 +190,6 @@ void UILayer::onUpdate(float) {
             ImGui::BeginTooltip();
             ImGui::Text("%s", countryName.c_str());
             
-            // Show choropleth value if active
             if (mapLayer->isChoroplethActive()) {
                 float value;
                 if (mapLayer->getChoroplethValue(hoveredCountry, value)) {
@@ -169,17 +206,66 @@ void UILayer::onUpdate(float) {
                     ImGui::TextDisabled("No data available");
                 }
             }
-            
             ImGui::EndTooltip();
         }
     }
+}
 
+void UILayer::renderSearchBar() {
+    addSeparatorText("Find in Selection");
+    
+    // Input box
+    ImGui::SetNextItemWidth(-1); // Use full width
+    if (ImGui::InputTextWithHint("##Search", "Filter active graphs...", searchBuffer, IM_ARRAYSIZE(searchBuffer))) {
+        // Just keeping buffer updated
+    }
+    
+    // Dropdown suggestions - Only search WITHIN selected countries
+    if (strlen(searchBuffer) > 0) {
+        // Only show popup if we have selected countries
+        const auto& selectedIds = mapLayer->getSelectedCountries();
+        if (selectedIds.empty()) return;
+
+        if (ImGui::BeginChild("SearchResults", ImVec2(0, 100), true)) {
+            std::string query = searchBuffer;
+            std::transform(query.begin(), query.end(), query.begin(), ::tolower);
+            
+            // Build temporary list of NAMES from selected IDs
+            std::vector<std::string> activeNames;
+            activeNames.reserve(selectedIds.size());
+            for(const auto& id : selectedIds) {
+                activeNames.push_back(mapLayer->getCountryName(id));
+            }
+            // Sort for display
+            std::sort(activeNames.begin(), activeNames.end());
+
+            bool foundAny = false;
+            for (const auto& country : activeNames) {
+                std::string countryLower = country;
+                std::transform(countryLower.begin(), countryLower.end(), countryLower.begin(), ::tolower);
+                
+                // Simple substring match
+                if (countryLower.find(query) != std::string::npos) {
+                    foundAny = true;
+                    if (ImGui::Selectable(country.c_str())) {
+                        // On click: Set the buffer to the full name. 
+                        // The 'onUpdate' loop will pick this up and set 'highlightCountry'
+                        memset(searchBuffer, 0, sizeof(searchBuffer));
+                        strncpy(searchBuffer, country.c_str(), sizeof(searchBuffer) - 1);
+                    }
+                }
+            }
+            if (!foundAny) {
+                ImGui::TextDisabled("No match in current selection");
+            }
+        }
+        ImGui::EndChild();
+    }
 }
 
 void UILayer::renderChoroplethControls() {
     ImGui::TextDisabled("Color map by data metric:");
     
-    // Combo box for selecting the column
     const char* previewValue = (selectedChoroplethColumn >= 0 && selectedChoroplethColumn < (int)availableColumns.size())
         ? availableColumns[selectedChoroplethColumn].c_str()
         : "Select metric...";
@@ -190,10 +276,8 @@ void UILayer::renderChoroplethControls() {
             if (ImGui::Selectable(availableColumns[i].c_str(), isSelected)) {
                 selectedChoroplethColumn = i;
                 
-                // Apply choropleth with unit
                 auto columnData = dataManager->getColumnWithUnitForAllCountries(availableColumns[i]);
                 
-                // Convert country names to ISO codes
                 std::unordered_map<std::string, float> isoData;
                 for (const auto& [countryName, value] : columnData.values) {
                     std::string isoCode = mapLayer->getIsoCodeFromName(countryName);
@@ -204,17 +288,12 @@ void UILayer::renderChoroplethControls() {
                 
                 mapLayer->applyChoropleth(isoData, columnData.unit);
             }
-            if (isSelected) {
-                ImGui::SetItemDefaultFocus();
-            }
+            if (isSelected) ImGui::SetItemDefaultFocus();
         }
         ImGui::EndCombo();
     }
     
-    // Clear button
     if (mapLayer->isChoroplethActive()) {
-        
-        // Color legend
         ImGui::Spacing();
         ImGui::TextDisabled("Legend:");
         ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -222,25 +301,16 @@ void UILayer::renderChoroplethControls() {
         float width = ImGui::GetContentRegionAvail().x;
         float height = 15.0f;
         
-        // Draw gradient bar
         int segments = 50;
         float segWidth = width / segments;
         for (int i = 0; i < segments; ++i) {
             float t = (float)i / (segments - 1);
-            
-            // Two-color gradient: light blue -> dark blue
             float r = 0.8f - t * 0.7f;
             float g = 0.9f - t * 0.7f;
             float b = 1.0f - t * 0.4f;
-            
             ImU32 col = IM_COL32((int)(r*255), (int)(g*255), (int)(b*255), 255);
-            drawList->AddRectFilled(
-                ImVec2(pos.x + i * segWidth, pos.y),
-                ImVec2(pos.x + (i + 1) * segWidth, pos.y + height),
-                col
-            );
+            drawList->AddRectFilled(ImVec2(pos.x + i * segWidth, pos.y), ImVec2(pos.x + (i + 1) * segWidth, pos.y + height), col);
         }
-        
         ImGui::Dummy(ImVec2(width, height));
         ImGui::TextDisabled("Low");
         ImGui::SameLine(width - ImGui::CalcTextSize("High").x);
@@ -250,7 +320,6 @@ void UILayer::renderChoroplethControls() {
 
 void UILayer::renderSelectionList() {
     addSeparatorText("Selected Countries");
-
     const auto& selectedCountries = mapLayer->getSelectedCountries();
 
     if (selectedCountries.empty()) {
@@ -259,14 +328,12 @@ void UILayer::renderSelectionList() {
         if (ImGui::BeginChild("CountryList", ImVec2(0, 200), true))
         {
             std::string toDeselect = "";
-
             for (const auto& countryId : selectedCountries) {
                 std::string countryName = mapLayer->getCountryName(countryId);
 
                 ImGui::PushID(countryId.c_str());
                 ImGui::Text("%s", countryName.c_str());
 
-                // Right-align the X button
                 float buttonWidth = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2.0f;
                 ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - buttonWidth);
 
@@ -274,36 +341,24 @@ void UILayer::renderSelectionList() {
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
                 ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
 
-                if (ImGui::SmallButton("X")) {
-                    toDeselect = countryId;
-                }
+                if (ImGui::SmallButton("X")) toDeselect = countryId;
 
                 ImGui::PopStyleColor(3);
                 ImGui::PopID();
             }
-
-            // Handle deselction after loop to avoid iterator invalidation
-            if (!toDeselect.empty()) {
-                mapLayer->deselectCountry(toDeselect);
-            }
+            if (!toDeselect.empty()) mapLayer->deselectCountry(toDeselect);
         }
         ImGui::EndChild();
 
-        // Clear All button (only when there are selections)
-        if (ImGui::Button("Clear All")) {
-            mapLayer->clearSelection();
-        }
+        if (ImGui::Button("Clear All")) mapLayer->clearSelection();
         ImGui::SameLine();
     }
 
-    // Select All button (always visible)
     if (!selectedCountries.empty()) {
         float buttonWidth = ImGui::CalcTextSize("Select All").x + ImGui::GetStyle().FramePadding.x * 2.0f;
         ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - buttonWidth - 7.0f);
     }
-    if (ImGui::Button("Select All")) {
-        mapLayer->selectAll();
-    }
+    if (ImGui::Button("Select All")) mapLayer->selectAll();
 }
 
 void UILayer::setupDockspace() {
@@ -335,7 +390,6 @@ void UILayer::setupDockspace() {
         }
         ImGui::EndMenuBar();
     }
-
     ImGui::End();
 }
 
@@ -350,11 +404,7 @@ void UILayer::renderLoadingScreen() {
     ImGui::SetNextWindowSize(viewport->WorkSize);
     ImGui::SetNextWindowViewport(viewport->ID);
 
-    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration |
-                                    ImGuiWindowFlags_NoMove |
-                                    ImGuiWindowFlags_NoResize |
-                                    ImGuiWindowFlags_NoSavedSettings |
-                                    ImGuiWindowFlags_NoBringToFrontOnFocus;
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
@@ -363,19 +413,14 @@ void UILayer::renderLoadingScreen() {
     ImGui::Begin("LoadingScreen", nullptr, window_flags);
     ImGui::PopStyleVar(3);
 
-    // Center the loading text
     ImVec2 windowSize = ImGui::GetWindowSize();
-
     const char* loadingText = "Loading Data...";
     ImVec2 textSize = ImGui::CalcTextSize(loadingText);
 
     ImGui::SetCursorPos(ImVec2((windowSize.x - textSize.x) * 0.5f, (windowSize.y - textSize.y) * 0.5f - 20.0f));
     ImGui::Text("%s", loadingText);
 
-    // Add a spinner/progress indicator
     ImGui::SetCursorPos(ImVec2((windowSize.x) * 0.5f - 15.0f, (windowSize.y) * 0.5f + 10.0f));
-
-    // Simple rotating spinner
     static float rotation = 0.0f;
     rotation += 0.05f;
     if (rotation > 6.28f) rotation = 0.0f;
@@ -390,7 +435,6 @@ void UILayer::renderLoadingScreen() {
         ImVec2 pos = ImVec2(center.x + cos(angle) * radius, center.y + sin(angle) * radius);
         draw_list->AddCircleFilled(pos, 3.0f, ImColor(1.0f, 1.0f, 1.0f, alpha));
     }
-
     ImGui::End();
 }
 

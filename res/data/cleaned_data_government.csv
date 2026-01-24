@@ -31,7 +31,7 @@ Cabo Verde,Praia,Republic,18.0
 Cambodia,Phnom Penh,Monarchy,18.0
 Cameroon,Yaounde,Republic,20.0
 Canada,Ottawa,Democracy,18.0
-Central African Republic,Bangui,,18.0
+Central African Rep.,Bangui,,18.0
 Chad,N’Djamena,Republic,18.0
 Chile,Santiago; note - Valparaiso is the seat of the national legislature,Republic,18.0
 China,Beijing,Communist,18.0
@@ -47,11 +47,11 @@ Czechia,Prague,Republic,18.0
 Denmark,Copenhagen,Monarchy,18.0
 Djibouti,Djibouti,Republic,18.0
 Dominica,Roseau,Republic,18.0
-Dominican Republic,Port-au-Prince,Republic,18.0
+Dominican Rep.,Port-au-Prince,Republic,18.0
 Ecuador,Quito,Republic,
 Egypt,Cairo,Republic,18.0
 El Salvador,San Salvador,Republic,18.0
-Equatorial Guinea,"Malabo; note - Malabo is on the island of Bioko; in 2017, some governmental offices began to move to a new capital of Ciudad de la",Republic,18.0
+Eq. Guinea,"Malabo; note - Malabo is on the island of Bioko; in 2017, some governmental offices began to move to a new capital of Ciudad de la",Republic,18.0
 Eritrea,Asmara,Republic,18.0
 Estonia,Tallinn,Republic,18.0
 Eswatini,Mbabane,Monarchy,18.0
@@ -60,7 +60,7 @@ Fiji,Suva,Republic,18.0
 Finland,Helsinki,Republic,18.0
 France,Madrid,Monarchy,18.0
 Gabon,Libreville,Republic,18.0
-The Gambia,Banjul,Republic,18.0
+Gambia,Banjul,Republic,18.0
 Georgia,Tbilisi,Republic,18.0
 Germany,Berlin,Republic,18.0
 Ghana,Accra,Republic,18.0
@@ -154,10 +154,10 @@ Sierra Leone,Freetown,Republic,18.0
 Singapore,Singapore,Republic,21.0
 Slovakia,Bratislava,Republic,18.0
 Slovenia,Ljubljana,Republic,18.0
-Solomon Islands,Honiara,Democracy,21.0
+Solomon Is.,Honiara,Democracy,21.0
 Somalia,Mogadishu,Republic,18.0
 South Africa,Pretoria,Republic,18.0
-South Sudan,Juba,Republic,18.0
+S. Sudan,Juba,Republic,18.0
 Sri Lanka,Colombo,Republic,18.0
 Sudan,Khartoum,Republic,17.0
 Suriname,Paramaribo,Republic,18.0
@@ -179,7 +179,7 @@ Uganda,Kampala,Republic,18.0
 Ukraine,Kyiv,Republic,18.0
 United Arab Emirates,Abu Dhabi,Other,
 United Kingdom,London,Monarchy,18.0
-United States,"Washington, DC",Republic,18.0
+United States of America,"Washington, DC",Republic,18.0
 Uruguay,Montevideo,Republic,18.0
 Uzbekistan,Tashkent,Republic,18.0
 Vanuatu,Port-Vila,Republic,18.0

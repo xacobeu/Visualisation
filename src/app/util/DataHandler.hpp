@@ -49,6 +49,9 @@ public:
     // Get all available columns
     std::vector<std::string> getAvailableColumns() const;
 
+    // Added: Get all country names loaded in memory
+    std::vector<std::string> getAllCountryNames() const;
+
 private:
     void loadFromCSV(std::string file, std::vector<std::string> columns);
     DataValue parseValueWithUnit(const std::string& rawValue);

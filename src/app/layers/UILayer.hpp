@@ -5,6 +5,7 @@
 #include "util/GraphRenderer.hpp"
 #include <memory>
 #include <string>
+#include <vector>
 
 class MapLayer;
 
@@ -23,6 +24,7 @@ private:
     void renderFPSDisplay() const;
     void addSeparatorText(const std::string text) const;
     void renderLoadingScreen();
+    void renderSearchBar(); // <--- The Search Bar function definition
 
     // References and Managers
     MapLayer* mapLayer;
@@ -35,11 +37,16 @@ private:
     std::vector<std::string> availableColumns;
     int currentMapTab = 0;  // 0 = Selection, 1 = Choropleth
 
+    // Search Bar State
+    char searchBuffer[128] = ""; // <--- Buffer for the input text
+    std::vector<std::string> cachedCountryNames;
+
     // Graph Specifications (Configuration)
     GraphSpec radarSpec;
     GraphSpec splomSpec;
     GraphSpec barSpec;
     GraphSpec scatterSpec;
+    GraphSpec treemapSpec; 
 
     // Constants for styling
     static constexpr float SEPARATOR_TEXT_SCALE = 1.5f;
