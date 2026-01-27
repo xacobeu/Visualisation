@@ -9,12 +9,12 @@
 #include <memory>
 #include <functional>
 
-// --- YOUR INCLUDES ---
 #include "Application.hpp"
 #include "renderer/GL/GLObject.hpp"
 #include "renderer/GL/Shader.hpp"
 #include "renderer/Renderer.hpp"
 #include "renderer/Camera.hpp"
+
 
 struct MapVertex {
     Vector3 position;
@@ -38,24 +38,25 @@ public:
     void onAttach() override;
     void onUpdate(float deltaTime) override;
     void onRender(Renderer& renderer) override;
-
-    // --- Selection Logic ---
-    void setSelectionEnabled(bool enabled) { selectionEnabled = enabled; }
     
-    // DECLARATIONS ONLY (Implemented in .cpp)
+    void setHover(const std::string& isoCode);
+
+    void setSelectionEnabled(bool enabled) { selectionEnabled = enabled; }
     void selectCountry(const std::string& isoCode);
     void deselectCountry(const std::string& isoCode);
     
     void clearSelection() {
         selectedCountries.clear();
-        needsBufferUpdate = true;
+        for (const auto& [id, meta] : countries) {
+            updateCountryColor(id);
+        }
     }
 
     void selectAll() {
         for (const auto& [id, meta] : countries) {
             selectedCountries.insert(id);
+            updateCountryColor(id);
         }
-        needsBufferUpdate = true;
     }
 
     const std::unordered_set<std::string>& getSelectedCountries() const { return selectedCountries; }
@@ -93,7 +94,6 @@ public:
 
     std::string getCountryAtCursor() const;
 
-    // Public for Earcut template specialization
     struct Point { double x, y; };
 
 private:
@@ -127,13 +127,19 @@ private:
     ViewMetrics calculateViewMetrics() const;
     std::pair<float, float> screenToWorld(double x, double y, const ViewMetrics& vm) const;
     std::pair<float, float> latLonToWorld(double lon, double lat) const;
+    
+    // Core color logic
+    void updateCountryColor(const std::string& isoCode);
     void setCountryColor(const std::string& isoCode, float r, float g, float b, float a);
+    
     Vector4 valueToColor(float normalized) const;
 
-    std::string mapFilePath = "res/data/custom.geo.json"; 
+    std::string mapFilePath = "res/data/10m.json"; 
     std::unordered_map<std::string, CountryMetadata> countries;
     std::unordered_set<std::string> selectedCountries;
-    
+    std::unordered_set<std::string> highlightedCountries;
+    std::string hoveredIso = "";
+
     std::vector<MapVertex> vertices;
     std::vector<uint32_t> indices;
     std::vector<MapVertex> borderVertices;
@@ -148,7 +154,6 @@ private:
     std::shared_ptr<GL::VertexBuffer> borderVbo;
     std::shared_ptr<GL::ElementBuffer> borderEbo;
     
-    // IMPORTANT: Shader needs to be here or accessed from Renderer
     std::shared_ptr<GL::Shader> shader; 
 
     float panOffsetX = 0.0f;

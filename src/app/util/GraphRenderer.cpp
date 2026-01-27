@@ -13,6 +13,9 @@
 std::vector<GraphRenderer::RadarFeature> GraphRenderer::g_AvailableFeatures;
 std::vector<GraphRenderer::RadarFeature> GraphRenderer::g_ActiveFeatures;
 
+std::vector<GraphRenderer::SplomFeature> GraphRenderer::g_SplomAvailableFeatures;
+std::vector<GraphRenderer::SplomFeature> GraphRenderer::g_SplomActiveFeatures;
+
 bool GraphRenderer::s_IsDragging = false;
 bool GraphRenderer::s_HasSelection = false;
 float GraphRenderer::s_DragStartX = 0.0f;
@@ -172,8 +175,15 @@ void GraphRenderer::RenderTreeMap(const GraphSpec& spec,
     }
 
     // 4. Render
-    for (const auto& node : nodes) {
-        DrawTreemapNode(drawList, node, highlight, spec, data[0]);
+    // Compute percentages for each node (out of 100%)
+    std::vector<float> nodePercentages;
+    if (totalValue > 0) {
+        for (const auto& node : nodes) {
+            nodePercentages.push_back((node.value / totalValue) * 100.0f);
+        }
+    }
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        DrawTreemapNode(drawList, nodes[i], highlight, spec, data[0], (totalValue > 0) ? nodePercentages[i] : 0.0f);
     }
     
     ImGui::Dummy(avail);
@@ -253,63 +263,50 @@ void GraphRenderer::LayoutRow(std::vector<TreemapNode*>& row, Rect& container, b
 }
 
 void GraphRenderer::DrawTreemapNode(void* drawListPtr, const TreemapNode& node, 
-                                    const std::string& highlight, const GraphSpec& spec, const PlotSeries& dataSeries)
+                                    const std::string& highlight, const GraphSpec& spec, const PlotSeries& dataSeries, float percent)
 {
     ImDrawList* drawList = (ImDrawList*)drawListPtr;
-    
     ImVec2 pMin(node.x, node.y);
     ImVec2 pMax(node.x + node.w, node.y + node.h);
-    
     // Padding
     pMin.x += 1; pMin.y += 1;
     pMax.x -= 1; pMax.y -= 1;
-    
     if (pMax.x <= pMin.x || pMax.y <= pMin.y) return;
-
     // Color logic
     ImU32 col;
     bool isHighlighted = (!highlight.empty() && node.label == highlight);
-    
     if (isHighlighted) {
-         col = IM_COL32(255, 200, 50, 255); // Bright Yellow/Orange
+        col = IM_COL32(255, 200, 50, 255); // Bright Yellow/Orange
     } else {
-         // Hash string to get consistent random color, or gradient
-         // Simple gradient based on area size often looks good in treemaps
-         // Or just hash the name for distinct colors
-         size_t hash = std::hash<std::string>{}(node.label);
-         float hue = (hash % 100) / 100.0f;
-         col = ImColor::HSV(hue, 0.6f, 0.7f);
+        size_t hash = std::hash<std::string>{}(node.label);
+        float hue = (hash % 100) / 100.0f;
+        col = ImColor::HSV(hue, 0.6f, 0.7f);
     }
-    
     drawList->AddRectFilled(pMin, pMax, col);
-    
     if (isHighlighted) {
          drawList->AddRect(pMin, pMax, IM_COL32(255, 255, 255, 255), 0.0f, 0, 3.0f);
     }
-
     // Hover
     if (ImGui::IsMouseHoveringRect(pMin, pMax)) {
          drawList->AddRect(pMin, pMax, IM_COL32(255, 255, 255, 150), 0.0f, 0, 2.0f);
          ImGui::BeginTooltip();
-         ImGui::Text("%s", node.label.c_str());
+         ImGui::Text("%s (%.1f%%)", node.label.c_str(), percent);
          ImGui::Text("%s: %.2f %s", spec.series.labels[0].c_str(), node.value, dataSeries.unit.c_str());
          ImGui::EndTooltip();
     }
-
     // Label if fits
     if (node.w > 30 && node.h > 15) {
-        std::string label = node.label;
+        char labelBuf[128];
+        snprintf(labelBuf, sizeof(labelBuf), "%s (%.1f%%)", node.label.c_str(), percent);
+        std::string label = labelBuf;
         ImVec2 textSize = ImGui::CalcTextSize(label.c_str());
-        
         // Truncate if too long
         if (textSize.x > node.w - 4) {
-            // Very basic truncation
             int chars = (int)((node.w - 4) / (textSize.x / label.length()));
             if (chars > 2) label = label.substr(0, chars - 2) + "..";
             else label = "";
             textSize = ImGui::CalcTextSize(label.c_str());
         }
-        
         if (!label.empty() && textSize.y < node.h) {
             ImVec2 textPos = ImVec2(
                 pMin.x + (node.w - textSize.x) * 0.5f,
@@ -424,18 +421,78 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
                                 const std::vector<PlotSeries>& data,
                                 const std::string& highlight)
 {
-    const int n = static_cast<int>(data.size());
-    if (n < 2) {
+    const int totalFeatures = static_cast<int>(data.size());
+    if (totalFeatures < 2) {
         ImGui::Text("SPLOM requires at least 2 data series.");
         return;
     }
 
     ImGui::TextUnformatted(spec.title.c_str());
 
+    // Initialize features if needed
+    if ((g_SplomActiveFeatures.empty() && g_SplomAvailableFeatures.empty()) || 
+        (g_SplomActiveFeatures.size() + g_SplomAvailableFeatures.size()) != data.size()) {
+        g_SplomActiveFeatures.clear();
+        g_SplomAvailableFeatures.clear();
+        for (size_t i = 0; i < data.size(); ++i) {
+            SplomFeature feature;
+            feature.id = (int)i;
+            feature.label = (i < spec.series.labels.size()) ? spec.series.labels[i] : ("Feature " + std::to_string(i));
+            feature.series = data[i];
+            g_SplomActiveFeatures.push_back(feature);
+        }
+    } else {
+        // Update existing features with new data
+        for (auto& feature : g_SplomActiveFeatures) 
+            if (feature.id >= 0 && feature.id < (int)data.size()) 
+                feature.series = data[feature.id];
+        for (auto& feature : g_SplomAvailableFeatures) 
+            if (feature.id >= 0 && feature.id < (int)data.size()) 
+                feature.series = data[feature.id];
+    }
+
+    // Start layout
+    ImGui::BeginGroup();
+    
+    // Build active data and labels from g_SplomActiveFeatures
+    std::vector<PlotSeries> activeData;
+    std::vector<std::string> activeLabels;
+    for (const auto& feature : g_SplomActiveFeatures) {
+        activeData.push_back(feature.series);
+        activeLabels.push_back(feature.label);
+    }
+    
+    const int n = static_cast<int>(activeData.size());
+    if (n < 2) {
+        ImGui::BeginChild("SplomPlaceholder", ImVec2(-1, 400), true, ImGuiWindowFlags_NoScrollbar);
+        ImVec2 avail = ImGui::GetContentRegionAvail();
+        ImVec2 textSize = ImGui::CalcTextSize("Drop features here to display SPLOM");
+        ImGui::SetCursorPos(ImVec2((avail.x - textSize.x) * 0.5f, (avail.y - textSize.y) * 0.5f));
+        ImGui::TextDisabled("Drop features here to display SPLOM");
+        ImGui::SetCursorPos(ImVec2(0, 0));
+        ImGui::InvisibleButton("##dropzone", avail);
+        
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPLOM_FEATURE")) {
+                int src = *(int*)payload->Data;
+                g_SplomActiveFeatures.push_back(g_SplomAvailableFeatures[src]);
+                g_SplomAvailableFeatures.erase(g_SplomAvailableFeatures.begin() + src);
+                s_HasSelection = false;
+                s_IsDragging = false;
+                s_HighlightedPoints.clear();
+            }
+            ImGui::EndDragDropTarget();
+        }
+        
+        ImGui::EndChild();
+        ImGui::EndGroup();
+        return;
+    }
+
     std::vector<float> seriesMin(n), seriesMax(n);
     for (int i = 0; i < n; ++i) {
-        if (data[i].values.empty()) continue;
-        auto [minIt, maxIt] = std::minmax_element(data[i].values.begin(), data[i].values.end());
+        if (activeData[i].values.empty()) continue;
+        auto [minIt, maxIt] = std::minmax_element(activeData[i].values.begin(), activeData[i].values.end());
         seriesMin[i] = *minIt;
         seriesMax[i] = *maxIt;
         float range = seriesMax[i] - seriesMin[i];
@@ -475,13 +532,30 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
                 ImGui::TableSetColumnIndex(0);
                 for (int col = 0; col < n; ++col) {
                     ImGui::TableSetColumnIndex(col + 1);
-                    const std::string& label = spec.series.labels[col];
-                    float wrapWidth = cellSize - 4.0f;
-                    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrapWidth);
+                    const std::string& label = activeLabels[col];
+                    float wrapWidth = cellSize - 6.0f;
+                    
                     ImGui::SetWindowFontScale(0.85f);
+                    ImVec2 textSize = ImGui::CalcTextSize(label.c_str(), nullptr, false, wrapWidth);
+                    float offsetX = (cellSize - textSize.x) * 0.5f;
+                    if (offsetX > 0) {
+                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
+                    }
+                    
+                    ImVec2 textStartPos = ImGui::GetCursorScreenPos();
+                    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrapWidth);
                     ImGui::TextWrapped("%s", label.c_str());
                     ImGui::SetWindowFontScale(1.0f);
                     ImGui::PopTextWrapPos();
+                    
+                    // Make label draggable
+                    ImGui::SetCursorScreenPos(textStartPos);
+                    ImGui::InvisibleButton(("##xlabel" + std::to_string(col)).c_str(), textSize);
+                    if (ImGui::BeginDragDropSource()) {
+                        ImGui::SetDragDropPayload("SPLOM_REMOVE", &col, sizeof(int));
+                        ImGui::Text("Remove %s", label.c_str());
+                        ImGui::EndDragDropSource();
+                    }
                 }
                 continue;
             }
@@ -495,9 +569,19 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
                 ImVec2 cellPos = ImGui::GetCursorScreenPos();
                 float cellCenterX = cellPos.x + labelColWidth * 0.5f;
                 float cellCenterY = cellPos.y + cellSize * 0.5f;
-                const std::string& label = spec.series.labels[row];
-                AddTextRotated(drawList, font, fontSize, cellCenterX - 4, cellCenterY + 10, IM_COL32(255, 255, 255, 255), label.c_str(), -IM_PI / 2.0f);
-                ImGui::Dummy(ImVec2(labelColWidth, cellSize));
+                const std::string& label = activeLabels[row];
+                ImVec2 textSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, label.c_str());
+                float textOffset = textSize.x * 0.5f;
+                AddTextRotated(drawList, font, fontSize, cellCenterX - 6, cellCenterY + textOffset, IM_COL32(255, 255, 255, 255), label.c_str(), -IM_PI / 2.0f);
+                
+                // Make label draggable
+                ImGui::SetCursorScreenPos(ImVec2(cellPos.x, cellPos.y + (cellSize - textSize.x) * 0.5f));
+                ImGui::InvisibleButton(("##ylabel" + std::to_string(row)).c_str(), ImVec2(labelColWidth, textSize.x));
+                if (ImGui::BeginDragDropSource()) {
+                    ImGui::SetDragDropPayload("SPLOM_REMOVE", &row, sizeof(int));
+                    ImGui::Text("Remove %s", label.c_str());
+                    ImGui::EndDragDropSource();
+                }
             }
 
             for (int col = 0; col < n; ++col) {
@@ -512,7 +596,56 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
                     ImPlot::SetupAxisLimits(ImAxis_Y1, seriesMin[row], seriesMax[row], ImPlotCond_Always);
 
                     if (row == col) {
-                        ImGui::Text("%s", spec.series.labels[row].c_str());
+                        // Draw histogram on diagonal
+                        const int numBins = 10;
+                        std::vector<double> bins(numBins + 1);
+                        std::vector<double> counts(numBins, 0.0);
+                        
+                        // Create bin edges
+                        float range = seriesMax[col] - seriesMin[col];
+                        for (int b = 0; b <= numBins; ++b) {
+                            bins[b] = seriesMin[col] + (range * b / numBins);
+                        }
+                        
+                        // Count values in each bin
+                        for (const auto& val : activeData[col].values) {
+                            if (val >= seriesMin[col] && val <= seriesMax[col]) {
+                                int binIdx = static_cast<int>((val - seriesMin[col]) / range * numBins);
+                                if (binIdx >= numBins) binIdx = numBins - 1;
+                                if (binIdx < 0) binIdx = 0;
+                                counts[binIdx] += 1.0;
+                            }
+                        }
+                        
+                        // Find max count for Y-axis scaling
+                        double maxCount = *std::max_element(counts.begin(), counts.end());
+                        if (maxCount > 0) {
+                            ImPlot::SetupAxisLimits(ImAxis_Y1, 0, maxCount * 1.1, ImPlotCond_Always);
+                        }
+                        
+                        // Draw histogram bars
+                        ImPlot::PushStyleColor(ImPlotCol_Fill, ImVec4(0.3f, 0.7f, 1.0f, 0.6f));
+                        for (int b = 0; b < numBins; ++b) {
+                            double barWidth = bins[b + 1] - bins[b];
+                            double barCenter = (bins[b] + bins[b + 1]) / 2.0;
+                            ImPlot::PlotBars("##histogram", &barCenter, &counts[b], 1, barWidth);
+                        }
+                        ImPlot::PopStyleColor();
+                        
+                        // Add drop target to plot area
+                        if (ImPlot::BeginDragDropTargetPlot()) {
+                            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPLOM_FEATURE")) {
+                                int src = *(int*)payload->Data;
+                                g_SplomActiveFeatures.push_back(g_SplomAvailableFeatures[src]);
+                                g_SplomAvailableFeatures.erase(g_SplomAvailableFeatures.begin() + src);
+                                // Clear selection state when features change
+                                s_HasSelection = false;
+                                s_IsDragging = false;
+                                s_HighlightedPoints.clear();
+                            }
+                            ImPlot::EndDragDropTarget();
+                        }
+                        
                         ImPlot::EndPlot();
                         ImPlot::PopStyleColor();
                         ImPlot::PopStyleVar();
@@ -540,7 +673,7 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
                             ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, ImVec4(0.3f, 0.7f, 1.0f, 0.5f));
                         }
                         
-                        ImPlot::PlotScatter(("##" + labels[i]).c_str(), &data[col].values[i], &data[row].values[i], 1);
+                        ImPlot::PlotScatter(("##" + labels[i]).c_str(), &activeData[col].values[i], &activeData[row].values[i], 1);
                         
                         ImPlot::PopStyleColor(2);
                         if (isHoverHighlight) ImPlot::PopStyleVar();
@@ -571,15 +704,61 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
                             float maxY = std::max(s_DragStartY, s_DragEndY);
                             if (std::abs(maxX - minX) + std::abs(maxY - minY) > 0.01f) {
                                 s_HasSelection = true;
+                                bool anySelected = false;
                                 for (size_t i = 0; i < labels.size(); ++i) {
-                                    float px = data[col].values[i];
-                                    float py = data[row].values[i];
+                                    float px = activeData[col].values[i];
+                                    float py = activeData[row].values[i];
                                     s_HighlightedPoints[i] = (px >= minX && px <= maxX && py >= minY && py <= maxY);
+                                    if (s_HighlightedPoints[i]) anySelected = true;
+                                }
+                                // If no points were selected, clear the selection
+                                if (!anySelected) {
+                                    s_HasSelection = false;
+                                    std::fill(s_HighlightedPoints.begin(), s_HighlightedPoints.end(), false);
                                 }
                             }
                         }
                     }
 
+                    
+                    if (ImPlot::IsPlotHovered()) {
+
+                        float minDist = FLT_MAX;
+                        int closestIdx = -1;
+
+                        for (size_t i = 0; i < labels.size(); ++i) {
+                            ImVec2 dataPix = ImPlot::PlotToPixels(activeData[col].values[i], activeData[row].values[i]);
+                            ImVec2 mousePix = ImPlot::PlotToPixels(ImPlot::GetPlotMousePos());
+                            float d = static_cast<float>(pow(mousePix.x - dataPix.x, 2) + pow(mousePix.y - dataPix.y, 2));
+                            if (d < minDist) {
+                                minDist = d;
+                                closestIdx = (int)i;
+                            }
+                        }
+
+                        if (closestIdx >= 0 && minDist < 400.0f) {
+                            ImGui::BeginTooltip();
+                            ImGui::Text("%s", labels[closestIdx].c_str());
+                            ImGui::Text("X: %.2f", activeData[col].values[closestIdx]);
+                            ImGui::Text("Y: %.2f", activeData[row].values[closestIdx]);
+                            ImGui::EndTooltip();
+                        }
+                    }
+                    
+                    // Add drop target to plot area
+                    if (ImPlot::BeginDragDropTargetPlot()) {
+                        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPLOM_FEATURE")) {
+                            int src = *(int*)payload->Data;
+                            g_SplomActiveFeatures.push_back(g_SplomAvailableFeatures[src]);
+                            g_SplomAvailableFeatures.erase(g_SplomAvailableFeatures.begin() + src);
+                            // Clear selection state when features change
+                            s_HasSelection = false;
+                            s_IsDragging = false;
+                            s_HighlightedPoints.clear();
+                        }
+                        ImPlot::EndDragDropTarget();
+                    }
+                    
                     ImPlot::EndPlot();
                     ImPlot::PopStyleColor();
                     ImPlot::PopStyleVar();
@@ -588,6 +767,67 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
         }
         ImGui::EndTable();
     }
+    
+    // Feature panel at the bottom - horizontal layout
+    ImGui::BeginChild("SplomFeaturePanel", ImVec2(0, 60), true, ImGuiWindowFlags_HorizontalScrollbar);
+    
+    // Show placeholder text when empty, otherwise show features
+    if (g_SplomAvailableFeatures.empty()) {
+        ImVec2 avail = ImGui::GetContentRegionAvail();
+        const char* placeholderText = "Drag and drop features here to remove from SPLOM";
+        ImVec2 textSize = ImGui::CalcTextSize(placeholderText);
+        ImGui::SetCursorPos(ImVec2((avail.x - textSize.x) * 0.5f, (avail.y - textSize.y) * 0.5f));
+        ImGui::TextDisabled("%s", placeholderText);
+    } else {
+        // Available features list - horizontal
+        for (size_t i = 0; i < g_SplomAvailableFeatures.size(); ++i) {
+            if (i > 0) ImGui::SameLine();
+            ImGui::PushID((int)i);
+            ImGui::Button(g_SplomAvailableFeatures[i].label.c_str());
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+                int idx = (int)i;
+                ImGui::SetDragDropPayload("SPLOM_FEATURE", &idx, sizeof(int));
+                ImGui::Text("Add: %s", g_SplomAvailableFeatures[i].label.c_str());
+                ImGui::EndDragDropSource();
+            }
+            ImGui::PopID();
+        }
+    }
+    
+    // Drop target inside the list area
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPLOM_REMOVE")) {
+            int idx = *(int*)payload->Data;
+            if (idx >= 0 && idx < (int)g_SplomActiveFeatures.size()) {
+                g_SplomAvailableFeatures.push_back(g_SplomActiveFeatures[idx]);
+                g_SplomActiveFeatures.erase(g_SplomActiveFeatures.begin() + idx);
+                // Clear selection state when features change
+                s_HasSelection = false;
+                s_IsDragging = false;
+                s_HighlightedPoints.clear();
+            }
+        }
+        ImGui::EndDragDropTarget();
+    }
+    ImGui::EndChild();
+    
+    // Also make the child window itself a drop target
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPLOM_REMOVE")) {
+            int idx = *(int*)payload->Data;
+            if (idx >= 0 && idx < (int)g_SplomActiveFeatures.size()) {
+                g_SplomAvailableFeatures.push_back(g_SplomActiveFeatures[idx]);
+                g_SplomActiveFeatures.erase(g_SplomActiveFeatures.begin() + idx);
+                // Clear selection state when features change
+                s_HasSelection = false;
+                s_IsDragging = false;
+                s_HighlightedPoints.clear();
+            }
+        }
+        ImGui::EndDragDropTarget();
+    }
+    
+    ImGui::EndGroup();  // Close the main SPLOM group
     
     if (s_HasSelection && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
         s_HasSelection = false;
@@ -618,51 +858,11 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
     }
 
     ImGui::BeginGroup();
-    ImGui::BeginChild("FeaturePanel", ImVec2(150, 400), true);
-    ImGui::TextUnformatted("Features");
-    ImGui::Separator();
-    for (size_t i = 0; i < g_AvailableFeatures.size(); ++i) {
-        ImGui::PushID((int)i);
-        ImGui::Selectable(g_AvailableFeatures[i].label.c_str(), false);
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
-            int idx = (int)i;
-            ImGui::SetDragDropPayload("RADAR_FEATURE", &idx, sizeof(int));
-            ImGui::Text("Add: %s", g_AvailableFeatures[i].label.c_str());
-            ImGui::EndDragDropSource();
-        }
-        ImGui::PopID();
-    }
-    if (ImGui::BeginDragDropTarget()) {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("RADAR_REMOVE")) {
-            int idx = *(int*)payload->Data;
-            if (idx >= 0 && idx < (int)g_ActiveFeatures.size()) {
-                g_AvailableFeatures.push_back(g_ActiveFeatures[idx]);
-                g_ActiveFeatures.erase(g_ActiveFeatures.begin() + idx);
-            }
-        }
-        ImGui::EndDragDropTarget();
-    }
-    ImGui::EndChild();
-    
-    // Also make the child window itself a drop target
-    if (ImGui::BeginDragDropTarget()) {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("RADAR_REMOVE")) {
-            int idx = *(int*)payload->Data;
-            if (idx >= 0 && idx < (int)g_ActiveFeatures.size()) {
-                g_AvailableFeatures.push_back(g_ActiveFeatures[idx]);
-                g_ActiveFeatures.erase(g_ActiveFeatures.begin() + idx);
-            }
-        }
-        ImGui::EndDragDropTarget();
-    }
 
-    ImGui::SameLine();
-    ImGui::BeginGroup();
-
-    if (!ImPlot::BeginPlot(spec.title.c_str(), ImVec2(-1, 400), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoFrame)) {
-        ImGui::EndGroup(); ImGui::EndGroup(); return;
+    if (!ImPlot::BeginPlot(spec.title.c_str(), ImVec2(-1, 400), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoFrame | ImPlotFlags_NoMouseText)) {
+        ImGui::EndGroup(); return;
     }
-    ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoDecorations, ImPlotAxisFlags_NoDecorations);
+    ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoDecorations | ImPlotAxisFlags_NoHighlight, ImPlotAxisFlags_NoDecorations | ImPlotAxisFlags_NoHighlight);
     ImPlot::SetupAxisLimits(ImAxis_X1, -1, 1, ImPlotCond_Always);
     ImPlot::SetupAxisLimits(ImAxis_Y1, -1, 1, ImPlotCond_Always);
     
@@ -701,7 +901,7 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
         draw->AddText(labelPos, IM_COL32_WHITE, labelText);
         
         ImGui::SetCursorScreenPos(labelPos);
-        ImGui::InvisibleButton(("##axis" + std::to_string(a)).c_str(), ImVec2(50,15));
+        ImGui::InvisibleButton(("##axis" + std::to_string(a)).c_str(), ImVec2(textSize.x, textSize.y));
         if (ImGui::BeginDragDropSource()) {
             ImGui::SetDragDropPayload("RADAR_REMOVE", &a, sizeof(int));
             ImGui::Text("Remove %s", g_ActiveFeatures[a].label.c_str());
@@ -722,6 +922,10 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
 
     const size_t countryCount = g_ActiveFeatures[0].series.values.size();
 
+    // Track polygons for tooltip detection
+    std::vector<std::vector<ImVec2>> allPolygons;
+    allPolygons.reserve(countryCount);
+
     for (size_t c = 0; c < countryCount; ++c) {
         if (labels[c] == highlight) continue;
 
@@ -735,6 +939,8 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
             float norm = maxVals[a] > 0 ? g_ActiveFeatures[a].series.values[c] / maxVals[a] : 0.0f;
             poly.push_back({ center.x + cosf(ang) * (norm * radius), center.y + sinf(ang) * (norm * radius) });
         }
+
+        allPolygons.push_back(poly);
 
         if (poly.size() >= 3) {
             for (int i = 0; i < axisCount; ++i) draw->AddTriangleFilled(center, poly[i], poly[(i+1)%axisCount], fillCol);
@@ -767,9 +973,111 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
             }
         }
     }
+    
+    // Tooltip detection
+    if (ImPlot::IsPlotHovered()) {
+        ImVec2 mousePos = ImGui::GetMousePos();
+        
+        // Helper function to check if point is inside polygon
+        auto isPointInPolygon = [](const ImVec2& point, const std::vector<ImVec2>& polygon) {
+            bool inside = false;
+            int n = polygon.size();
+            for (int i = 0, j = n - 1; i < n; j = i++) {
+                if (((polygon[i].y > point.y) != (polygon[j].y > point.y)) &&
+                    (point.x < (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) + polygon[i].x)) {
+                    inside = !inside;
+                }
+            }
+            return inside;
+        };
+        
+        // Check each country's polygon
+        int hoveredCountry = -1;
+        for (size_t c = 0; c < allPolygons.size(); ++c) {
+            if (!allPolygons[c].empty() && isPointInPolygon(mousePos, allPolygons[c])) {
+                hoveredCountry = (int)c;
+                break;
+            }
+        }
+        
+        // Display tooltip for hovered country
+        if (hoveredCountry >= 0) {
+            // Adjust index if highlight country was skipped
+            int actualIndex = hoveredCountry;
+            if (!highlight.empty()) {
+                for (int i = 0; i <= hoveredCountry; ++i) {
+                    if (labels[i] == highlight) {
+                        actualIndex++;
+                        break;
+                    }
+                }
+            }
+            
+            if (actualIndex < (int)countryCount) {
+                ImGui::BeginTooltip();
+                ImGui::Text("%s", labels[actualIndex].c_str());
+                ImGui::Separator();
+                for (int a = 0; a < axisCount; ++a) {
+                    ImGui::Text("%s: %.2f", g_ActiveFeatures[a].label.c_str(), g_ActiveFeatures[a].series.values[actualIndex]);
+                }
+                ImGui::EndTooltip();
+            }
+        }
+    }
 
     ImPlot::EndPlot();
-    ImGui::EndGroup();
+    
+    // Feature panel at the bottom - horizontal layout
+    ImGui::BeginChild("FeaturePanel", ImVec2(0, 60), true, ImGuiWindowFlags_HorizontalScrollbar);
+    
+    // Show placeholder text when empty, otherwise show features
+    if (g_AvailableFeatures.empty()) {
+        ImVec2 avail = ImGui::GetContentRegionAvail();
+        const char* placeholderText = "Drag and drop features here to remove from Radar";
+        ImVec2 textSize = ImGui::CalcTextSize(placeholderText);
+        ImGui::SetCursorPos(ImVec2((avail.x - textSize.x) * 0.5f, (avail.y - textSize.y) * 0.5f));
+        ImGui::TextDisabled("%s", placeholderText);
+    } else {
+        // Available features list - horizontal
+        for (size_t i = 0; i < g_AvailableFeatures.size(); ++i) {
+            if (i > 0) ImGui::SameLine();
+            ImGui::PushID((int)i);
+            ImGui::Button(g_AvailableFeatures[i].label.c_str());
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+                int idx = (int)i;
+                ImGui::SetDragDropPayload("RADAR_FEATURE", &idx, sizeof(int));
+                ImGui::Text("Add: %s", g_AvailableFeatures[i].label.c_str());
+                ImGui::EndDragDropSource();
+            }
+            ImGui::PopID();
+        }
+    }
+    
+    // Drop target inside the list area
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("RADAR_REMOVE")) {
+            int idx = *(int*)payload->Data;
+            if (idx >= 0 && idx < (int)g_ActiveFeatures.size()) {
+                g_AvailableFeatures.push_back(g_ActiveFeatures[idx]);
+                g_ActiveFeatures.erase(g_ActiveFeatures.begin() + idx);
+            }
+        }
+        ImGui::EndDragDropTarget();
+    }
+    ImGui::EndChild();
+    
+    // Also make the child window itself a drop target
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("RADAR_REMOVE")) {
+            int idx = *(int*)payload->Data;
+            if (idx >= 0 && idx < (int)g_ActiveFeatures.size()) {
+                g_AvailableFeatures.push_back(g_ActiveFeatures[idx]);
+                g_ActiveFeatures.erase(g_ActiveFeatures.begin() + idx);
+            }
+        }
+        ImGui::EndDragDropTarget();
+    }
+    
     ImGui::EndGroup();
 }
 

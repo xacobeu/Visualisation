@@ -41,6 +41,9 @@ private:
     char searchBuffer[128] = ""; // <--- Buffer for the input text
     std::vector<std::string> cachedCountryNames;
 
+    // Treemap state
+    int selectedTreemapMetric = 0;
+
     // Graph Specifications (Configuration)
     GraphSpec radarSpec;
     GraphSpec splomSpec;

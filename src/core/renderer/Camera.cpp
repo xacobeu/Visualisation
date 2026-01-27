@@ -43,8 +43,8 @@ void Camera::rotate(float deltaYaw, float deltaPitch) {
 }
 
 void Camera::zoom(float yoff) {
-    distance -= yoff * 0.3f;
+    distance -= yoff * 20;
     if (distance < 1.5f) distance = 1.5f;
-    if (distance > 100.0f) distance = 100.0f;  // Increased max zoom out for map viewing
+    if (distance > 1000.0f) distance = 1000.0f;  // Increased max zoom out for map viewing
 }
 

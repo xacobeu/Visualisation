@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 # 1. Load the custom geo json data
-with open('custom.geo.json', 'r', encoding='utf-8') as f:
+with open('10m.json', 'r', encoding='utf-8') as f:
     geo_data = json.load(f)
 
 # 2. Build the mapping dictionary

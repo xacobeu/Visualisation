@@ -1,10 +1,7 @@
 #include "MapLayer.hpp"
 #include "imgui.h"
 
-// --- CRITICAL: Definitions for the types used in shared_ptr ---
-// Based on your path "renderer/GL/Shader.hpp", these should be here:
-#include "renderer/GL/GLObject.hpp"
-#include "renderer/GL/Shader.hpp"
+// --- CRITICAL INCLUDES ---
 
 // External libraries
 #include <nlohmann/json.hpp>
@@ -16,10 +13,12 @@
 #include <iostream>
 #include <fstream>
 
-const Vector4 DEFAULT_COUNTRY_COLOR  = {0.4f, 0.7f, 0.4f, 1.0f}; // Green
-const Vector4 SELECTED_COUNTRY_COLOR = {0.1f, 0.5f, 0.1f, 1.0f}; // Dark Green
-const Vector4 NO_DATA_COUNTRY_COLOR  = {0.5f, 0.5f, 0.5f, 1.0f}; // Grey
+// --- COLORS ---
 const Vector4 BORDER_COLOR           = {0.0f, 0.0f, 0.0f, 1.0f}; // Black
+const Vector4 DEFAULT_COUNTRY_COLOR  = {0.4f, 0.7f, 0.4f, 1.0f}; // Light Green
+const Vector4 SELECTED_COUNTRY_COLOR = {0.2f, 0.5f, 0.2f, 1.0f}; // Dark Green (Click Selection)
+const Vector4 HIGHLIGHT_COLOR        = {1.0f, 0.8f, 0.0f, 1.0f}; // Gold (Search Highlight)
+const Vector4 NO_DATA_COUNTRY_COLOR  = {0.5f, 0.5f, 0.5f, 1.0f}; // Grey
 
 const std::array<MapVertex::Attribute, 3> MapVertex::attributes = {{
     {0, 3, GL_FLOAT, offsetof(MapVertex, position)},
@@ -27,7 +26,6 @@ const std::array<MapVertex::Attribute, 3> MapVertex::attributes = {{
     {2, 4, GL_FLOAT, offsetof(MapVertex, color)}
 }};
 
-// Namespace alias for Earcut
 namespace mapbox {
     namespace util {
         template <>
@@ -43,29 +41,23 @@ namespace mapbox {
 
 MapLayer::ViewMetrics MapLayer::calculateViewMetrics() const {
     Camera& cam = app->getCamera();
-
     float h = (float)app->getHeight();
     if (h < 1.0f) h = 1.0f;
-
     float aspect = (float)app->getWidth() / h;
 
     ViewMetrics vm;
     vm.aspect = aspect;
     vm.zoom = cam.distance / BASE_CAM_DIST;
-
     vm.height = MAP_HALF_HEIGHT * vm.zoom;
     vm.width = vm.height * aspect;
-
     return vm;
 }
 
 std::pair<float, float> MapLayer::screenToWorld(double x, double y, const ViewMetrics& vm) const {
     float ndcX = (2.0f * (float)x / app->getWidth()) - 1.0f;
     float ndcY = 1.0f - (2.0f * (float)y / app->getHeight());
-
     float worldX = ndcX * vm.width + panOffsetX;
     float worldY = ndcY * vm.height + panOffsetY;
-
     return {worldX, worldY};
 }
 
@@ -78,7 +70,6 @@ std::pair<float, float> MapLayer::latLonToWorld(double lon, double lat) const {
 void MapLayer::constrainPanY(float viewHeight) {
     float minY = -MAP_HALF_HEIGHT + viewHeight;
     float maxY = MAP_HALF_HEIGHT - viewHeight;
-
     if (minY > maxY) {
         panOffsetY = 0.0f;
     } else {
@@ -87,8 +78,21 @@ void MapLayer::constrainPanY(float viewHeight) {
     }
 }
 
+void MapLayer::setHover(const std::string& isoCode) {
+    if (hoveredIso != isoCode) {
+        std::string previousHover = hoveredIso;
+        hoveredIso = isoCode;
+        if (!previousHover.empty()) {
+            updateCountryColor(previousHover);
+        }
+        if (!hoveredIso.empty()) {
+            updateCountryColor(hoveredIso);
+        }
+    }
+}
+
 void MapLayer::onAttach() {
-    // Initialize buffers using std::make_shared
+    // Initialize buffers using GL namespace
     vao = std::make_shared<GL::VertexArray>();
     vbo = std::make_shared<GL::VertexBuffer>();
     ebo = std::make_shared<GL::ElementBuffer>();
@@ -114,7 +118,7 @@ void MapLayer::onAttach() {
 
     vao->bind();
     vbo->bind();
-    vao->setLayout<MapVertex>(); // Assuming VertexArray supports template layout
+    vao->setLayout<MapVertex>(); 
     vao->unbind();
 
     borderVao->bind();
@@ -122,9 +126,8 @@ void MapLayer::onAttach() {
     borderVao->setLayout<MapVertex>();
     borderVao->unbind();
 
-    // Init Colors
     for (auto& [id, meta] : countries) {
-        setCountryColor(id, DEFAULT_COUNTRY_COLOR.x, DEFAULT_COUNTRY_COLOR.y, DEFAULT_COUNTRY_COLOR.z, DEFAULT_COUNTRY_COLOR.w);
+        updateCountryColor(id);
     }
     uploadBuffers();
 
@@ -138,11 +141,50 @@ void MapLayer::onAttach() {
 
 Vector4 MapLayer::valueToColor(float normalized) const {
     normalized = std::max(0.0f, std::min(1.0f, normalized));
-    // Gradient: Light Blue (0.8, 0.9, 1.0) -> Dark Blue (0.1, 0.2, 0.6)
     float r = 0.8f - normalized * 0.7f;
     float g = 0.9f - normalized * 0.7f;
     float b = 1.0f - normalized * 0.4f;
     return {r, g, b, 1.0f};
+}
+
+// --- COLOR PRIORITY LOGIC ---
+void MapLayer::updateCountryColor(const std::string& isoCode) {
+
+    Vector4 baseColor;
+    
+    // Data (Choropleth)
+    if (choroplethActive) {
+        if (choroplethColors.count(isoCode)) {
+            baseColor = choroplethColors[isoCode];
+        } else {
+            baseColor = NO_DATA_COUNTRY_COLOR;
+        }
+    }
+    else if (highlightedCountries.find(isoCode) != highlightedCountries.end()) {
+        baseColor = HIGHLIGHT_COLOR;
+    }
+    else if (selectedCountries.find(isoCode) != selectedCountries.end()) {
+        baseColor = SELECTED_COUNTRY_COLOR;
+    }
+    else {
+        baseColor = DEFAULT_COUNTRY_COLOR;
+    }
+
+    // Hover effect -> LIGHTEN
+    if (isoCode == hoveredIso) {
+        float lightenFactor = 0.4f;
+        Vector4 hoverColor = {
+            baseColor.x + (1.0f - baseColor.x) * lightenFactor,
+            baseColor.y + (1.0f - baseColor.y) * lightenFactor,
+            baseColor.z + (1.0f - baseColor.z) * lightenFactor,
+            baseColor.w
+        };
+        setCountryColor(isoCode, hoverColor.x, hoverColor.y, hoverColor.z, hoverColor.w);
+        return;
+    }
+
+    // Apply the base color
+    setCountryColor(isoCode, baseColor.x, baseColor.y, baseColor.z, baseColor.w);
 }
 
 void MapLayer::applyChoropleth(const std::unordered_map<std::string, float>& countryValues, const std::string& unit) {
@@ -169,20 +211,14 @@ void MapLayer::applyChoropleth(const std::unordered_map<std::string, float>& cou
     for (const auto& [id, meta] : countries) {
         Vector4 col;
         auto it = countryValues.find(id);
-        
         if (it != countryValues.end()) {
             float normalized = (it->second - minVal) / range;
             col = valueToColor(normalized);
         } else {
             col = NO_DATA_COUNTRY_COLOR;
         }
-        
         choroplethColors[id] = col;
-        
-        // IMPORTANT: If country is selected, it stays GOLD.
-        if (selectedCountries.find(id) == selectedCountries.end()) {
-            setCountryColor(id, col.x, col.y, col.z, col.w);
-        }
+        updateCountryColor(id);
     }
 }
 
@@ -193,32 +229,21 @@ void MapLayer::clearChoropleth() {
     choroplethUnit.clear();
     
     for (const auto& [id, meta] : countries) {
-        if (selectedCountries.find(id) != selectedCountries.end()) {
-            setCountryColor(id, SELECTED_COUNTRY_COLOR.x, SELECTED_COUNTRY_COLOR.y, SELECTED_COUNTRY_COLOR.z, SELECTED_COUNTRY_COLOR.w);
-        } else {
-            setCountryColor(id, DEFAULT_COUNTRY_COLOR.x, DEFAULT_COUNTRY_COLOR.y, DEFAULT_COUNTRY_COLOR.z, DEFAULT_COUNTRY_COLOR.w);
-        }
+        updateCountryColor(id);
     }
 }
 
-// IMPLEMENTATIONS OF SELECTION LOGIC
 void MapLayer::selectCountry(const std::string& isoCode) {
     if (countries.find(isoCode) == countries.end()) return;
     selectedCountries.insert(isoCode);
-    setCountryColor(isoCode, SELECTED_COUNTRY_COLOR.x, SELECTED_COUNTRY_COLOR.y, SELECTED_COUNTRY_COLOR.z, SELECTED_COUNTRY_COLOR.w);
+    updateCountryColor(isoCode);
 }
 
 void MapLayer::deselectCountry(const std::string& isoCode) {
     if (selectedCountries.find(isoCode) == selectedCountries.end()) return;
     selectedCountries.erase(isoCode);
-
-    // Revert to Choropleth color or Default color
-    if (choroplethActive && choroplethColors.count(isoCode)) {
-        Vector4 col = choroplethColors[isoCode];
-        setCountryColor(isoCode, col.x, col.y, col.z, col.w);
-    } else {
-        setCountryColor(isoCode, DEFAULT_COUNTRY_COLOR.x, DEFAULT_COUNTRY_COLOR.y, DEFAULT_COUNTRY_COLOR.z, DEFAULT_COUNTRY_COLOR.w);
-    }
+    highlightedCountries.erase(isoCode);
+    updateCountryColor(isoCode);
 }
 
 void MapLayer::onUpdate(float) {
@@ -227,9 +252,8 @@ void MapLayer::onUpdate(float) {
     }
 }
 
-void MapLayer::onRender(Renderer& renderer) {
+void MapLayer::onRender(Renderer&) {
     ViewMetrics vm = calculateViewMetrics();
-
     Matrix4 projection = Matrix4::ortho(-vm.width, vm.width, -vm.height, vm.height, -100.0f, 100.0f);
     Matrix4 view = Matrix4::identity();
 
@@ -244,18 +268,15 @@ void MapLayer::onRender(Renderer& renderer) {
         Matrix4 modelTransform = Matrix4::identity();
         Matrix4 mvp = projection * view * tileTransform * modelTransform;
 
-        // Ensure shader exists
         if (shader) {
             shader->bind();
-            shader->setMat4("u_Transform", mvp.data()); // Ensure your shader uses "u_Transform"
+            shader->setMat4("u_Transform", mvp.data());
             
             vao->bind();
             glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, nullptr);
             vao->unbind();
             
-            // Draw Borders
             borderVao->bind();
-            // Note: Make sure shader is set for single color if needed, or use vertex colors
             glDrawElements(GL_LINES, static_cast<GLsizei>(borderIndices.size()), GL_UNSIGNED_INT, nullptr);
             borderVao->unbind();
             
@@ -280,12 +301,7 @@ void MapLayer::loadAndTriangulate(const std::string& path) {
     if(!f.is_open()) { printf("Failed to load Map from %s\n", path.c_str()); return; }
 
     json data;
-    try {
-        f >> data;
-    } catch(const std::exception& e) {
-        printf("JSON Parsing error: %s\n", e.what());
-        return;
-    }
+    try { f >> data; } catch(...) { return; }
 
     vertices.clear();
     indices.clear();
@@ -294,7 +310,6 @@ void MapLayer::loadAndTriangulate(const std::string& path) {
 
     for (const auto& feature : data["features"]) {
         std::string id = feature["properties"].value("adm0_a3", "UNK");
-
         CountryMetadata& meta = countries[id];
         meta.name = feature["properties"].value("name", "Unknown");
 
@@ -308,17 +323,14 @@ void MapLayer::loadAndTriangulate(const std::string& path) {
                     MapVertex v;
                     v.position = {x, y, 0.0f};
                     v.normal = {0.0f, 0.0f, 1.0f};
-                    v.color = {0.5f, 0.5f, 0.5f, 1.0f};
-
+                    v.color = {0.5f, 0.5f, 0.5f, 1.0f}; 
+                    
                     meta.globalVertexIndices.push_back(vertices.size());
                     meta.updateBounds(x, y);
                     vertices.push_back(v);
                 }
             }
-
-            for (uint32_t idx : localIndices) {
-                indices.push_back(static_cast<uint32_t>(baseIndex + idx));
-            }
+            for (uint32_t idx : localIndices) indices.push_back(static_cast<uint32_t>(baseIndex + idx));
             meta.rawPolygons.push_back(rings[0]);
   
             for (const auto& ring : rings) {
@@ -326,11 +338,10 @@ void MapLayer::loadAndTriangulate(const std::string& path) {
                 for (size_t i = 0; i < ring.size(); ++i) {
                     auto [x, y] = latLonToWorld(ring[i].x, ring[i].y);
                     MapVertex v;
-                    v.position = {x, y, 0.01f}; // Slightly above map
+                    v.position = {x, y, 0.01f}; 
                     v.normal   = {0.0f, 0.0f, 1.0f};
                     v.color    = BORDER_COLOR;
                     borderVertices.push_back(v);
-
                     if (i > 0) {
                         borderIndices.push_back(static_cast<uint32_t>(borderBaseIdx + i - 1));
                         borderIndices.push_back(static_cast<uint32_t>(borderBaseIdx + i));
@@ -386,7 +397,6 @@ void MapLayer::uploadBuffers() {
 void MapLayer::handleMousePicking() {
     auto mx = app->getCursorX();
     auto my = app->getCursorY();
-
     ViewMetrics vm = calculateViewMetrics();
     auto [worldX, worldY] = screenToWorld(mx, my, vm);
 
@@ -403,7 +413,6 @@ void MapLayer::handleMousePicking() {
             for (size_t i = 0; i < poly.size(); i++) {
                 auto [polyXi, polyYi] = latLonToWorld(poly[i].x, poly[i].y);
                 auto [polyXj, polyYj] = latLonToWorld(poly[j].x, poly[j].y);
-
                 if (((polyYi > worldY) != (polyYj > worldY)) &&
                     (wrappedX < (polyXj - polyXi) * (worldY - polyYi) / (polyYj - polyYi) + polyXi)) {
                     inside = !inside;
@@ -427,7 +436,6 @@ void MapLayer::handleMousePicking() {
 std::string MapLayer::getCountryAtCursor() const {
     auto mx = app->getCursorX();
     auto my = app->getCursorY();
-
     ViewMetrics vm = calculateViewMetrics();
     auto [worldX, worldY] = screenToWorld(mx, my, vm);
 
@@ -437,14 +445,12 @@ std::string MapLayer::getCountryAtCursor() const {
 
     for (const auto& [id, meta] : countries) {
         if (!meta.contains(wrappedX, worldY)) continue;
-
         bool inside = false;
         for (const auto& poly : meta.rawPolygons) {
             size_t j = poly.size() - 1;
             for (size_t i = 0; i < poly.size(); i++) {
                 auto [polyXi, polyYi] = latLonToWorld(poly[i].x, poly[i].y);
                 auto [polyXj, polyYj] = latLonToWorld(poly[j].x, poly[j].y);
-
                 if (((polyYi > worldY) != (polyYj > worldY)) &&
                     (wrappedX < (polyXj - polyXi) * (worldY - polyYi) / (polyYj - polyYi) + polyXi)) {
                     inside = !inside;
@@ -461,39 +467,45 @@ std::string MapLayer::getCountryAtCursor() const {
 void MapLayer::setupCallbacks() {
     app->getWindowEvents().onMouseClick = [this](int button, int action, int) {
         if (ImGui::GetIO().WantCaptureMouse) return;
-        if (button != GLFW_MOUSE_BUTTON_LEFT) return;
 
-        Camera& cam = app->getCamera();
-        if (action == GLFW_PRESS) {
-            cam.dragging = true;
-            cam.lastMouseX = app->getCursorX();
-            cam.lastMouseY = app->getCursorY();
-            mousePressX = cam.lastMouseX;
-            mousePressY = cam.lastMouseY;
-        } else if (action == GLFW_RELEASE) {
-            cam.dragging = false;
-            double dx = app->getCursorX() - mousePressX;
-            double dy = app->getCursorY() - mousePressY;
-            if ((dx * dx + dy * dy) < 25.0 && selectionEnabled) {
-                handleMousePicking();
+        // Selction on left-click, drag logic
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            Camera& cam = app->getCamera();
+            if (action == GLFW_PRESS) {
+                cam.dragging = true;
+                cam.lastMouseX = app->getCursorX();
+                cam.lastMouseY = app->getCursorY();
+                mousePressX = cam.lastMouseX;
+                mousePressY = cam.lastMouseY;
+            } else if (action == GLFW_RELEASE) {
+                cam.dragging = false;
+                double dx = app->getCursorX() - mousePressX;
+                double dy = app->getCursorY() - mousePressY;
+                if ((dx * dx + dy * dy) < 25.0 && selectionEnabled) {
+                    handleMousePicking();
+                }
             }
+
+            return;
         }
     };
 
     app->getWindowEvents().onScroll = [this](double, double yoffset) {
         Camera& cam = app->getCamera();
+    
+
         ViewMetrics oldVm = calculateViewMetrics();
         auto [worldXBefore, worldYBefore] = screenToWorld(app->getCursorX(), app->getCursorY(), oldVm);
-
         float oldDistance = cam.distance;
-        cam.zoom(float(yoffset));
-
+        cam.zoom(static_cast<float>(yoffset));
+        
         ViewMetrics newVm = calculateViewMetrics();
-        if (newVm.height >= MAP_HALF_HEIGHT) {
-            cam.distance = oldDistance; 
+        if (newVm.height < 1.5f) {
+            cam.distance = oldDistance;
             return;
         }
 
+        // Calculate world position after zoom
         auto [worldXAfter, worldYAfter] = screenToWorld(app->getCursorX(), app->getCursorY(), newVm);
         panOffsetX += (worldXBefore - worldXAfter);
         panOffsetY += (worldYBefore - worldYAfter);
@@ -508,7 +520,6 @@ void MapLayer::setupCallbacks() {
             double dy = y - cam.lastMouseY;
             float worldDx = (float)(dx / app->getWidth()) * (2.0f * vm.width);
             float worldDy = (float)(dy / app->getHeight()) * (2.0f * vm.height);
-
             panOffsetX -= worldDx;
             panOffsetY += worldDy;
             constrainPanY(vm.height);

@@ -63,7 +63,7 @@ private:
 
     // Helper to actually draw the rectangles once coordinates are calculated
     static void DrawTreemapNode(void* drawListPtr, const TreemapNode& node, 
-                                const std::string& highlight, const GraphSpec& spec, const PlotSeries& dataSeries);
+                                const std::string& highlight, const GraphSpec& spec, const PlotSeries& dataSeries, float percent);
                                 
     // Helper to check aspect ratios during layout
     static float WorstAspectRatio(const std::vector<TreemapNode*>& row, float sideLength);
@@ -79,6 +79,15 @@ private:
     };
     static std::vector<RadarFeature> g_AvailableFeatures;
     static std::vector<RadarFeature> g_ActiveFeatures;
+
+    // --- SPLOM FEATURE MANAGEMENT ---
+    struct SplomFeature {
+        int id;
+        std::string label;
+        PlotSeries series;
+    };
+    static std::vector<SplomFeature> g_SplomAvailableFeatures;
+    static std::vector<SplomFeature> g_SplomActiveFeatures;
 
     static void RenderRadar(const GraphSpec& spec,
                             const std::vector<std::string>& labels,

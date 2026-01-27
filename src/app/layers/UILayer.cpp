@@ -11,7 +11,7 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
 
     // Radar Graph Spec
     radarSpec.type = GraphType::Radar;
-    radarSpec.title = "Communications Overview";
+    radarSpec.title = "";
     radarSpec.xLabel = "Metrics";
     radarSpec.yLabel = "Values";
     radarSpec.series.columns = {
@@ -35,7 +35,7 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
 
     // SPLOM Graph Spec
     splomSpec.type = GraphType::SPLOM;
-    splomSpec.title = "Economic Indicators SPLOM";
+    splomSpec.title = "";
     splomSpec.xLabel = "Indicators";
     splomSpec.yLabel = "Indicators";
     splomSpec.series.columns = {
@@ -53,7 +53,7 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
 
     // Treemap Spec
     treemapSpec.type = GraphType::TreeMap;
-    treemapSpec.title = "Economy Treemap (Sized by GDP)";
+    treemapSpec.title = "";
     treemapSpec.xLabel = "";
     treemapSpec.yLabel = "";
     treemapSpec.series.columns = { "Real_GDP_PPP_billion_USD" };
@@ -123,14 +123,14 @@ void UILayer::onUpdate(float) {
 
     // --- Determine Highlighted Country ---
     // Priority: Mouse Hover > Search Bar result
-    std::string highlightCountry = "";
+    std::string hoverCountry = "";
     
     // 1. Check Search Bar (Exact Match Logic)
     if (strlen(searchBuffer) > 0) {
          std::string s(searchBuffer);
          // Check if the buffer matches a known country exactly
          if (std::find(cachedCountryNames.begin(), cachedCountryNames.end(), s) != cachedCountryNames.end()) {
-             highlightCountry = s;
+             hoverCountry = s;
          }
     }
 
@@ -138,8 +138,16 @@ void UILayer::onUpdate(float) {
     if (!ImGui::GetIO().WantCaptureMouse) {
         std::string hovered = mapLayer->getCountryAtCursor();
         if (!hovered.empty()) {
-            highlightCountry = mapLayer->getCountryName(hovered);
+            hoverCountry = mapLayer->getCountryName(hovered);
         }
+    }
+
+    // Push hover to map (uses ISO code)
+    if (!hoverCountry.empty()) {
+        std::string hoverIso = mapLayer->getIsoCodeFromName(hoverCountry);
+        mapLayer->setHover(hoverIso);
+    } else {
+        mapLayer->setHover("");
     }
 
     // --- Main Panel: Graphs ---
@@ -164,19 +172,48 @@ void UILayer::onUpdate(float) {
 
             // SPLOM
             auto splomData = dataManager->collectSeries(countryNames, splomSpec.series.columns);
-            GraphRenderer::Render(splomSpec, countryNames, splomData, highlightCountry);
+            GraphRenderer::Render(splomSpec, countryNames, splomData, hoverCountry);
 
             ImGui::Separator();
 
             // Radar
             auto radarData = dataManager->collectSeries(countryNames, radarSpec.series.columns);
-            GraphRenderer::Render(radarSpec, countryNames, radarData, highlightCountry);
+            GraphRenderer::Render(radarSpec, countryNames, radarData, hoverCountry);
 
             ImGui::Separator();
 
             // Treemap
+            const char* treemapMetrics[] = {
+                "GDP (PPP)",
+                "GDP per Capita",
+                "Budget",
+                "Exports",
+                "Imports",
+                "Population"
+            };
+            const char* treemapColumns[] = {
+                "Real_GDP_PPP_billion_USD",
+                "Real_GDP_per_Capita_USD",
+                "Budget_billion_USD",
+                "Exports_billion_USD",
+                "Imports_billion_USD",
+                "Total_Population"
+            };
+            
+            // Center the Treemap Metric dropdown
+            float comboWidth = 200.0f;
+            float availWidth = ImGui::GetContentRegionAvail().x;
+            float offset = (availWidth - comboWidth) * 0.5f;
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (offset > 0 ? offset : 0));
+            ImGui::SetNextItemWidth(comboWidth);
+            if (ImGui::Combo("Treemap Metric", &selectedTreemapMetric, treemapMetrics, IM_ARRAYSIZE(treemapMetrics))) {
+                // Update treemap spec when selection changes
+                treemapSpec.series.columns = { treemapColumns[selectedTreemapMetric] };
+                treemapSpec.series.labels = { treemapMetrics[selectedTreemapMetric] };
+            }
+            
             auto treemapData = dataManager->collectSeries(countryNames, treemapSpec.series.columns);
-            GraphRenderer::Render(treemapSpec, countryNames, treemapData, highlightCountry);
+            GraphRenderer::Render(treemapSpec, countryNames, treemapData, hoverCountry);
         }
     }
     ImGui::End();
@@ -251,7 +288,7 @@ void UILayer::renderSearchBar() {
                         // On click: Set the buffer to the full name. 
                         // The 'onUpdate' loop will pick this up and set 'highlightCountry'
                         memset(searchBuffer, 0, sizeof(searchBuffer));
-                        strncpy(searchBuffer, country.c_str(), sizeof(searchBuffer) - 1);
+                        strncpy_s(searchBuffer, sizeof(searchBuffer), country.c_str(), sizeof(searchBuffer) - 1);
                     }
                 }
             }
