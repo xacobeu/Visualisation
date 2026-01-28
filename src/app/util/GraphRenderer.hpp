@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include "DataHandler.hpp"
 
 enum class GraphType { Bar, Scatter, SPLOM, Radar, TreeMap };
@@ -25,6 +26,12 @@ public:
                        const std::vector<std::string>& itemLabels,
                        std::vector<PlotSeries>& data,
                        const std::string& highlight = "");
+    
+    static void Render(const GraphSpec& spec,
+                       const std::vector<std::string>& itemLabels,
+                       std::vector<PlotSeries>& data,
+                       const std::string& highlight,
+                       const std::unordered_map<std::string, std::string>& continentMap);
 
 private:
     static void RenderBar(const GraphSpec& spec,
@@ -45,6 +52,7 @@ private:
     // --- TREEMAP DEFINITIONS ---
     struct TreemapNode {
         std::string label;
+        std::string continent;
         float value;          // The raw value (e.g. GDP)
         float area;           // The scaled pixel area
         float x, y, w, h;     // Final coordinates
@@ -59,7 +67,8 @@ private:
     static void RenderTreeMap(const GraphSpec& spec,
                               const std::vector<std::string>& labels,
                               const std::vector<PlotSeries>& data,
-                              const std::string& highlight);
+                              const std::string& highlight,
+                              const std::unordered_map<std::string, std::string>& continentMap = {});
 
     // Helper to actually draw the rectangles once coordinates are calculated
     static void DrawTreemapNode(void* drawListPtr, const TreemapNode& node, 

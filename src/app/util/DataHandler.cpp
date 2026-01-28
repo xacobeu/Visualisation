@@ -55,11 +55,6 @@ void DataHandler::init() {
         "Agricultural_Land",
         "Arable_Land (% of Total Agricultural Land)"
     });
-    loadFromCSV(GOVERNMENT_CSV_PATH, {
-        "Capital",
-        "Government_Type",
-        "Suffrage_Age"
-    });
 }
 
 std::vector<PlotSeries> DataHandler::collectSeries(
@@ -108,7 +103,16 @@ void DataHandler::loadFromCSV(std::string file, std::vector<std::string> columns
     if (!csvReader.load(file)) return;
 
     auto countries = csvReader.getColumnAsStrings("Country");
+    auto continents = csvReader.getColumnAsStrings("Continent");
+    
     for (size_t i = 0; i < countries.size(); ++i) {
+        // Load continent data
+        if (!continents.empty() && i < continents.size()) {
+            DataValue continentVal(continents[i]);
+            loadedData[countries[i]]["Continent"] = continentVal;
+        }
+        
+        // Load requested columns
         for (const auto& col : columns) {
             std::string rawValue = csvReader.getColumnAsStrings(col)[i];
             loadedData[countries[i]][col] = parseValueWithUnit(rawValue);
@@ -176,6 +180,19 @@ std::vector<std::string> DataHandler::getAllCountryNames() const {
         names.push_back(name);
     }
     return names;
+}
+
+std::string DataHandler::getContinent(const std::string& countryName) const {
+    auto it = loadedData.find(countryName);
+    if (it != loadedData.end()) {
+        auto continentIt = it->second.find("Continent");
+        if (continentIt != it->second.end()) {
+            if (!continentIt->second.isNumeric()) {
+                return std::get<std::string>(continentIt->second.value);
+            }
+        }
+    }
+    return "Unknown";
 }
 
 DataValue DataHandler::parseValueWithUnit(const std::string& rawValue) {

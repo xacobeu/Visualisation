@@ -51,6 +51,9 @@ public:
 
     // Added: Get all country names loaded in memory
     std::vector<std::string> getAllCountryNames() const;
+    
+    // Get continent for a country
+    std::string getContinent(const std::string& countryName) const;
 
 private:
     void loadFromCSV(std::string file, std::vector<std::string> columns);

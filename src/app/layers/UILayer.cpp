@@ -11,7 +11,7 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
 
     // Radar Graph Spec
     radarSpec.type = GraphType::Radar;
-    radarSpec.title = "";
+    radarSpec.title = "##RadarChart";
     radarSpec.xLabel = "Metrics";
     radarSpec.yLabel = "Values";
     radarSpec.series.columns = {
@@ -35,7 +35,7 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
 
     // SPLOM Graph Spec
     splomSpec.type = GraphType::SPLOM;
-    splomSpec.title = "";
+    splomSpec.title = "##SPLOM";
     splomSpec.xLabel = "Indicators";
     splomSpec.yLabel = "Indicators";
     splomSpec.series.columns = {
@@ -53,7 +53,7 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
 
     // Treemap Spec
     treemapSpec.type = GraphType::TreeMap;
-    treemapSpec.title = "";
+    treemapSpec.title = "##Treemap";
     treemapSpec.xLabel = "";
     treemapSpec.yLabel = "";
     treemapSpec.series.columns = { "Real_GDP_PPP_billion_USD" };
@@ -213,7 +213,19 @@ void UILayer::onUpdate(float) {
             }
             
             auto treemapData = dataManager->collectSeries(countryNames, treemapSpec.series.columns);
-            GraphRenderer::Render(treemapSpec, countryNames, treemapData, hoverCountry);
+            
+            // Build continent map for treemap
+            std::unordered_map<std::string, std::string> continentMap;
+            for (const auto& country : countryNames) {
+                continentMap[country] = dataManager->getContinent(country);
+            }
+            
+            GraphRenderer::Render(treemapSpec, countryNames, treemapData, hoverCountry, continentMap);
+            
+            ImGui::Separator();
+            
+            // Custom Graph Builder
+            renderCustomGraphBuilder();
         }
     }
     ImGui::End();
@@ -288,7 +300,8 @@ void UILayer::renderSearchBar() {
                         // On click: Set the buffer to the full name. 
                         // The 'onUpdate' loop will pick this up and set 'highlightCountry'
                         memset(searchBuffer, 0, sizeof(searchBuffer));
-                        strncpy_s(searchBuffer, sizeof(searchBuffer), country.c_str(), sizeof(searchBuffer) - 1);
+                        strncpy(searchBuffer, country.c_str(), sizeof(searchBuffer) - 1);
+                        searchBuffer[sizeof(searchBuffer) - 1] = '\0';
                     }
                 }
             }
@@ -357,6 +370,53 @@ void UILayer::renderChoroplethControls() {
 
 void UILayer::renderSelectionList() {
     addSeparatorText("Selected Countries");
+    
+    // Search bar for adding countries
+    static char countrySearchBuffer[128] = "";
+    ImGui::SetNextItemWidth(-1);
+    ImGui::InputTextWithHint("##CountrySearch", "Search countries to select...", countrySearchBuffer, IM_ARRAYSIZE(countrySearchBuffer));
+    
+    // Show search results dropdown
+    if (strlen(countrySearchBuffer) > 0) {
+        if (ImGui::BeginChild("CountrySearchResults", ImVec2(0, 150), true)) {
+            std::string query = countrySearchBuffer;
+            std::transform(query.begin(), query.end(), query.begin(), ::tolower);
+            
+            // Get all available countries
+            auto allCountryNames = dataManager->getAllCountryNames();
+            std::sort(allCountryNames.begin(), allCountryNames.end());
+            
+            bool foundAny = false;
+            for (const auto& countryName : allCountryNames) {
+                std::string countryLower = countryName;
+                std::transform(countryLower.begin(), countryLower.end(), countryLower.begin(), ::tolower);
+                
+                if (countryLower.find(query) != std::string::npos) {
+                    foundAny = true;
+                    std::string isoCode = mapLayer->getIsoCodeFromName(countryName);
+                    if (!isoCode.empty()) {
+                        const auto& selected = mapLayer->getSelectedCountries();
+                        bool isSelected = selected.find(isoCode) != selected.end();
+                        
+                        // Show checkbox for selection state
+                        if (ImGui::Selectable(countryName.c_str(), isSelected)) {
+                            if (isSelected) {
+                                mapLayer->deselectCountry(isoCode);
+                            } else {
+                                mapLayer->selectCountry(isoCode);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (!foundAny) {
+                ImGui::TextDisabled("No countries found");
+            }
+        }
+        ImGui::EndChild();
+    }
+    
     const auto& selectedCountries = mapLayer->getSelectedCountries();
 
     if (selectedCountries.empty()) {
@@ -396,6 +456,224 @@ void UILayer::renderSelectionList() {
         ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - buttonWidth - 7.0f);
     }
     if (ImGui::Button("Select All")) mapLayer->selectAll();
+}
+
+void UILayer::renderCustomGraphBuilder() {
+    const auto& selectedCountries = mapLayer->getSelectedCountries();
+    
+    // Get country names from selected IDs
+    std::vector<std::string> countryNames;
+    countryNames.reserve(selectedCountries.size());
+    for (const auto& id : selectedCountries) {
+        countryNames.push_back(mapLayer->getCountryName(id));
+    }
+    
+    // Only get hover country if mouse is not over UI elements
+    std::string hoverCountry = "";
+    if (!ImGui::GetIO().WantCaptureMouse) {
+        hoverCountry = mapLayer->getCountryAtCursor();
+        if (!hoverCountry.empty()) {
+            hoverCountry = mapLayer->getCountryName(hoverCountry);
+        }
+    }
+    
+    // Render all saved custom graphs first
+    for (size_t graphIdx = 0; graphIdx < savedCustomGraphs.size(); ++graphIdx) {
+        // Use unique string ID for each custom graph to ensure drag-and-drop works independently
+        std::string uniqueId = "CustomGraph_" + std::to_string(graphIdx);
+        ImGui::PushID(uniqueId.c_str());
+        
+        auto customData = dataManager->collectSeries(countryNames, savedCustomGraphs[graphIdx].series.columns);
+        
+        // Add delete button
+        if (ImGui::Button("Delete Graph")) {
+            savedCustomGraphs.erase(savedCustomGraphs.begin() + graphIdx);
+            ImGui::PopID();
+            break;
+        }
+        ImGui::SameLine();
+        ImGui::Text("%s", savedCustomGraphs[graphIdx].title.c_str());
+        
+        if (savedCustomGraphs[graphIdx].type == GraphType::TreeMap) {
+            // Build continent map for treemap
+            std::unordered_map<std::string, std::string> continentMap;
+            for (const auto& country : countryNames) {
+                continentMap[country] = dataManager->getContinent(country);
+            }
+            GraphRenderer::Render(savedCustomGraphs[graphIdx], countryNames, customData, hoverCountry, continentMap);
+        } else {
+            GraphRenderer::Render(savedCustomGraphs[graphIdx], countryNames, customData, hoverCountry);
+        }
+        
+        ImGui::Separator();
+        ImGui::PopID();
+    }
+    
+    // Now show the builder menu
+    addSeparatorText("Custom Graph Builder");
+    
+    if (selectedCountries.empty()) {
+        ImGui::TextDisabled("Select countries to create custom graphs");
+        return;
+    }
+    
+    // Initialize selectedAttributes if needed
+    if (selectedAttributes.size() != availableColumns.size()) {
+        selectedAttributes.resize(availableColumns.size(), false);
+    }
+    
+    // Graph Type Selection
+    const char* graphTypes[] = {"Scatter Plot", "SPLOM", "Radar Chart", "TreeMap"};
+    ImGui::Text("Graph Type:");
+    ImGui::SetNextItemWidth(200);
+    ImGui::Combo("##GraphType", &customGraphType, graphTypes, IM_ARRAYSIZE(graphTypes));
+    
+    ImGui::Spacing();
+    
+    // Attribute Selection
+    ImGui::Text("Select Attributes:");
+    
+    if (ImGui::BeginChild("AttributeSelection", ImVec2(0, 200), true)) {
+        for (size_t i = 0; i < availableColumns.size(); ++i) {
+            ImGui::PushID(static_cast<int>(i));
+            bool isSelected = selectedAttributes[i];
+            if (ImGui::Checkbox(availableColumns[i].c_str(), &isSelected)) {
+                selectedAttributes[i] = isSelected;
+            }
+            ImGui::PopID();
+        }
+    }
+    ImGui::EndChild();
+    
+    // Count selected attributes
+    int selectedCount = 0;
+    for (bool selected : selectedAttributes) {
+        if (selected) selectedCount++;
+    }
+    
+    ImGui::Text("Selected: %d attributes", selectedCount);
+    
+    // Show requirements for selected graph type
+    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Requirements:");
+    ImGui::SameLine();
+    switch (customGraphType) {
+        case 0: // Scatter
+            ImGui::Text("Exactly 2 attributes");
+            break;
+        case 1: // SPLOM
+            ImGui::Text("At least 2 attributes");
+            break;
+        case 2: // Radar
+            ImGui::Text("At least 3 attributes");
+            break;
+        case 3: // TreeMap
+            ImGui::Text("Exactly 1 attribute");
+            break;
+    }
+    
+    // Check if requirements are met
+    bool requirementsMet = false;
+    std::string errorMsg = "";
+    switch (customGraphType) {
+        case 0: // Scatter
+            requirementsMet = (selectedCount == 2);
+            if (!requirementsMet && selectedCount > 0) {
+                errorMsg = "Scatter Plot requires exactly 2 attributes";
+            }
+            break;
+        case 1: // SPLOM
+            requirementsMet = (selectedCount >= 2);
+            if (!requirementsMet && selectedCount > 0) {
+                errorMsg = "SPLOM requires at least 2 attributes";
+            }
+            break;
+        case 2: // Radar
+            requirementsMet = (selectedCount >= 3);
+            if (!requirementsMet && selectedCount > 0) {
+                errorMsg = "Radar Chart requires at least 3 attributes";
+            }
+            break;
+        case 3: // TreeMap
+            requirementsMet = (selectedCount == 1);
+            if (!requirementsMet && selectedCount > 0) {
+                errorMsg = "TreeMap requires exactly 1 attribute";
+            }
+            break;
+    }
+    
+    if (!errorMsg.empty()) {
+        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", errorMsg.c_str());
+    }
+    
+    // Generate button
+    ImGui::Spacing();
+    if (!requirementsMet) {
+        ImGui::BeginDisabled();
+    }
+    if (ImGui::Button("Generate Graph", ImVec2(200, 0))) {
+        if (selectedCount > 0) {
+            // Build column list from selected attributes
+            std::vector<std::string> selectedCols;
+            std::vector<std::string> selectedLabels;
+            
+            for (size_t i = 0; i < availableColumns.size(); ++i) {
+                if (selectedAttributes[i]) {
+                    selectedCols.push_back(availableColumns[i]);
+                    selectedLabels.push_back(availableColumns[i]);
+                }
+            }
+            
+            // Create new graph spec
+            GraphSpec newGraph;
+            newGraph.series.columns = selectedCols;
+            newGraph.series.labels = selectedLabels;
+            
+            // Set graph type and title
+            switch (customGraphType) {
+                case 0: 
+                    newGraph.type = GraphType::Scatter;
+                    newGraph.title = "Custom Scatter Plot";
+                    break;
+                case 1: 
+                    newGraph.type = GraphType::SPLOM;
+                    newGraph.title = "Custom SPLOM";
+                    break;
+                case 2: 
+                    newGraph.type = GraphType::Radar;
+                    newGraph.title = "Custom Radar Chart";
+                    break;
+                case 3: 
+                    newGraph.type = GraphType::TreeMap;
+                    newGraph.title = "Custom TreeMap";
+                    break;
+            }
+            
+            newGraph.xLabel = "Countries";
+            newGraph.yLabel = "Values";
+            
+            // Add to saved graphs
+            savedCustomGraphs.push_back(newGraph);
+        }
+    }
+    if (!requirementsMet) {
+        ImGui::EndDisabled();
+    }
+    
+    // Clear button
+    ImGui::SameLine();
+    if (ImGui::Button("Clear Selection", ImVec2(200, 0))) {
+        for (size_t i = 0; i < selectedAttributes.size(); ++i) {
+            selectedAttributes[i] = false;
+        }
+    }
+    
+    // Clear all graphs button
+    if (!savedCustomGraphs.empty()) {
+        ImGui::SameLine();
+        if (ImGui::Button("Clear All Graphs", ImVec2(200, 0))) {
+            savedCustomGraphs.clear();
+        }
+    }
 }
 
 void UILayer::setupDockspace() {

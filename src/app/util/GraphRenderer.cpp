@@ -80,6 +80,61 @@ void GraphRenderer::Render(const GraphSpec& spec,
     ImPlot::PopStyleVar(2);
 }
 
+void GraphRenderer::Render(const GraphSpec& spec,
+                           const std::vector<std::string>& itemLabels,
+                           std::vector<PlotSeries>& data,
+                           const std::string& highlight,
+                           const std::unordered_map<std::string, std::string>& continentMap)
+{
+    if (itemLabels.empty() || data.empty()) {
+        ImGui::TextDisabled("No data selected to render.");
+        return;
+    }
+
+    switch (spec.type) {
+        case GraphType::SPLOM:
+            RenderSPLOM(spec, itemLabels, data, highlight);
+            return;
+        case GraphType::Radar:
+            RenderRadar(spec, itemLabels, data, highlight);
+            return;
+        case GraphType::TreeMap:
+            RenderTreeMap(spec, itemLabels, data, highlight, continentMap);
+            return;
+        case GraphType::Bar:
+        case GraphType::Scatter:
+            break;
+    }
+
+    // Generic Setup for Bar and Scatter plots
+    ImPlot::PushStyleVar(ImPlotStyleVar_PlotPadding, ImVec2(15, 80));
+    ImPlot::PushStyleVar(ImPlotStyleVar_FitPadding, (spec.type == GraphType::Bar) ? ImVec2(0.2f, 0.0f) : ImVec2(0.2f, 0.2f));
+    ImPlot::PushStyleColor(ImPlotCol_FrameBg, ImVec4(0,0,0,0));
+
+    if (ImPlot::BeginPlot(spec.title.c_str(), ImVec2(-1, 400))) {
+
+        ImPlot::SetupAxes(
+            spec.xLabel.c_str(), spec.yLabel.c_str(),
+            ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoHighlight | (spec.type == GraphType::Bar ? ImPlotAxisFlags_NoTickLabels : 0),
+            ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoHighlight
+        );
+
+        ImPlot::SetupAxisLimits(ImAxis_Y1, 0, ImPlotCond_Once);
+        ImPlot::SetupLegend(ImPlotLocation_NorthEast, ImPlotLegendFlags_Outside);
+
+        if (spec.type == GraphType::Bar) {
+            RenderBar(spec, itemLabels, data, highlight);
+        } else if (spec.type == GraphType::Scatter) {
+            RenderScatter(spec, itemLabels, data, highlight);
+        }
+
+        ImPlot::EndPlot();
+    }
+
+    ImPlot::PopStyleColor();
+    ImPlot::PopStyleVar(2);
+}
+
 // =========================================================
 // TREEMAP IMPLEMENTATION (SQUARIFIED)
 // =========================================================
@@ -87,7 +142,8 @@ void GraphRenderer::Render(const GraphSpec& spec,
 void GraphRenderer::RenderTreeMap(const GraphSpec& spec,
                                   const std::vector<std::string>& labels,
                                   const std::vector<PlotSeries>& data,
-                                  const std::string& highlight)
+                                  const std::string& highlight,
+                                  const std::unordered_map<std::string, std::string>& continentMap)
 {
     if (data.empty()) return;
 
@@ -102,8 +158,9 @@ void GraphRenderer::RenderTreeMap(const GraphSpec& spec,
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     drawList->AddRectFilled(p0, p1, IM_COL32(30, 30, 30, 255));
 
-    // 2. Prepare Data
-    std::vector<TreemapNode> nodes;
+    // 2. Prepare Data - Group by continent if continent map is provided
+    std::unordered_map<std::string, std::vector<TreemapNode>> continentGroups;
+    std::unordered_map<std::string, float> continentTotals;
     float totalValue = 0.0f;
     
     for (size_t i = 0; i < labels.size(); ++i) {
@@ -113,7 +170,13 @@ void GraphRenderer::RenderTreeMap(const GraphSpec& spec,
             node.label = labels[i];
             node.value = val;
             node.originalIndex = (int)i;
-            nodes.push_back(node);
+            
+            // Get continent for this country
+            auto it = continentMap.find(labels[i]);
+            node.continent = (it != continentMap.end()) ? it->second : "Unknown";
+            
+            continentGroups[node.continent].push_back(node);
+            continentTotals[node.continent] += val;
             totalValue += val;
         }
     }
@@ -123,70 +186,223 @@ void GraphRenderer::RenderTreeMap(const GraphSpec& spec,
         return;
     }
 
-    // Sort descending (critical for squarify)
-    std::sort(nodes.begin(), nodes.end(), [](const TreemapNode& a, const TreemapNode& b) {
-        return a.value > b.value;
-    });
-
-    // Calculate pixel area for each node
-    float totalArea = avail.x * avail.y;
-    for (auto& node : nodes) {
-        node.area = (node.value / totalValue) * totalArea;
-    }
-
-    // 3. Squarified Algorithm
-    Rect remainingRect = { p0.x, p0.y, avail.x, avail.y };
-    std::vector<TreemapNode*> currentRow;
-    
-    // We process nodes one by one
-    for (size_t i = 0; i < nodes.size(); ++i) {
-        TreemapNode* node = &nodes[i];
+    // If no continents provided or only one continent, render flat
+    if (continentMap.empty() || continentGroups.size() <= 1) {
+        // Flat rendering (original behavior)
+        std::vector<TreemapNode> nodes;
+        for (auto& [continent, countries] : continentGroups) {
+            nodes.insert(nodes.end(), countries.begin(), countries.end());
+        }
         
-        if (currentRow.empty()) {
-            currentRow.push_back(node);
-        } else {
-            // Check if adding this node improves aspect ratio
-            float side = remainingRect.shortestSide();
+        std::sort(nodes.begin(), nodes.end(), [](const TreemapNode& a, const TreemapNode& b) {
+            return a.value > b.value;
+        });
+
+        float totalArea = avail.x * avail.y;
+        for (auto& node : nodes) {
+            node.area = (node.value / totalValue) * totalArea;
+        }
+
+        Rect remainingRect = { p0.x, p0.y, avail.x, avail.y };
+        std::vector<TreemapNode*> currentRow;
+        
+        for (size_t i = 0; i < nodes.size(); ++i) {
+            TreemapNode* node = &nodes[i];
             
-            // Current worst ratio
-            float currentWorst = WorstAspectRatio(currentRow, side);
-            
-            // Worst ratio if we add the new node
-            std::vector<TreemapNode*> proposedRow = currentRow;
-            proposedRow.push_back(node);
-            float proposedWorst = WorstAspectRatio(proposedRow, side);
-            
-            if (currentWorst >= proposedWorst) {
-                // It improved (or stayed same), so add it
+            if (currentRow.empty()) {
                 currentRow.push_back(node);
             } else {
-                // It got worse, so finalize the current row
-                // "Layout" determines if we slice vertically or horizontally based on rect shape
-                LayoutRow(currentRow, remainingRect, remainingRect.w < remainingRect.h);
-                currentRow.clear();
+                float side = remainingRect.shortestSide();
+                float currentWorst = WorstAspectRatio(currentRow, side);
+                std::vector<TreemapNode*> proposedRow = currentRow;
+                proposedRow.push_back(node);
+                float proposedWorst = WorstAspectRatio(proposedRow, side);
+                
+                if (currentWorst >= proposedWorst) {
+                    currentRow.push_back(node);
+                } else {
+                    LayoutRow(currentRow, remainingRect, remainingRect.w < remainingRect.h);
+                    currentRow.clear();
+                    currentRow.push_back(node);
+                }
+            }
+        }
+
+        if (!currentRow.empty()) {
+            LayoutRow(currentRow, remainingRect, remainingRect.w < remainingRect.h);
+        }
+
+        for (size_t i = 0; i < nodes.size(); ++i) {
+            float percent = (totalValue > 0) ? (nodes[i].value / totalValue) * 100.0f : 0.0f;
+            DrawTreemapNode(drawList, nodes[i], highlight, spec, data[0], percent);
+        }
+    } else {
+        // Hierarchical rendering by continent
+        // Create continent-level nodes
+        std::vector<std::pair<std::string, float>> continentList;
+        for (const auto& [continent, total] : continentTotals) {
+            continentList.push_back({continent, total});
+        }
+        
+        // Sort continents by total value
+        std::sort(continentList.begin(), continentList.end(), 
+                 [](const auto& a, const auto& b) { return a.second > b.second; });
+        
+        // Calculate continent areas
+        float totalArea = avail.x * avail.y;
+        std::vector<Rect> continentRects;
+        std::vector<TreemapNode> continentNodes;
+        
+        for (const auto& [continent, total] : continentList) {
+            TreemapNode contNode;
+            contNode.label = continent;
+            contNode.value = total;
+            contNode.area = (total / totalValue) * totalArea;
+            continentNodes.push_back(contNode);
+        }
+        
+        // Layout continents
+        Rect remainingRect = { p0.x, p0.y, avail.x, avail.y };
+        std::vector<TreemapNode*> currentRow;
+        
+        for (size_t i = 0; i < continentNodes.size(); ++i) {
+            TreemapNode* node = &continentNodes[i];
+            
+            if (currentRow.empty()) {
                 currentRow.push_back(node);
+            } else {
+                float side = remainingRect.shortestSide();
+                float currentWorst = WorstAspectRatio(currentRow, side);
+                std::vector<TreemapNode*> proposedRow = currentRow;
+                proposedRow.push_back(node);
+                float proposedWorst = WorstAspectRatio(proposedRow, side);
+                
+                if (currentWorst >= proposedWorst) {
+                    currentRow.push_back(node);
+                } else {
+                    LayoutRow(currentRow, remainingRect, remainingRect.w < remainingRect.h);
+                    currentRow.clear();
+                    currentRow.push_back(node);
+                }
+            }
+        }
+        
+        if (!currentRow.empty()) {
+            LayoutRow(currentRow, remainingRect, remainingRect.w < remainingRect.h);
+        }
+        
+        // Now render each continent with its countries
+        for (size_t i = 0; i < continentNodes.size(); ++i) {
+            const auto& contNode = continentNodes[i];
+            const std::string& continent = contNode.label;
+            auto& countries = continentGroups[continent];
+            
+            // Sort countries within continent
+            std::sort(countries.begin(), countries.end(), [](const TreemapNode& a, const TreemapNode& b) {
+                return a.value > b.value;
+            });
+            
+            // Calculate country areas within continent rect
+            float continentTotal = continentTotals[continent];
+            float continentArea = contNode.w * contNode.h;
+            
+            for (auto& country : countries) {
+                country.area = (country.value / continentTotal) * continentArea;
+            }
+            
+            // Layout countries within continent
+            Rect countryRect = { contNode.x, contNode.y, contNode.w, contNode.h };
+            std::vector<TreemapNode*> countryRow;
+            
+            for (size_t j = 0; j < countries.size(); ++j) {
+                TreemapNode* cnode = &countries[j];
+                
+                if (countryRow.empty()) {
+                    countryRow.push_back(cnode);
+                } else {
+                    float side = countryRect.shortestSide();
+                    float currentWorst = WorstAspectRatio(countryRow, side);
+                    std::vector<TreemapNode*> proposedRow = countryRow;
+                    proposedRow.push_back(cnode);
+                    float proposedWorst = WorstAspectRatio(proposedRow, side);
+                    
+                    if (currentWorst >= proposedWorst) {
+                        countryRow.push_back(cnode);
+                    } else {
+                        LayoutRow(countryRow, countryRect, countryRect.w < countryRect.h);
+                        countryRow.clear();
+                        countryRow.push_back(cnode);
+                    }
+                }
+            }
+            
+            if (!countryRow.empty()) {
+                LayoutRow(countryRow, countryRect, countryRect.w < countryRect.h);
+            }
+            
+            // Draw continent border
+            ImVec2 cMin(contNode.x, contNode.y);
+            ImVec2 cMax(contNode.x + contNode.w, contNode.y + contNode.h);
+            drawList->AddRect(cMin, cMax, IM_COL32(255, 255, 255, 150), 0.0f, 0, 3.0f);
+            
+            // Draw continent label at top
+            ImVec2 textPos(contNode.x + 5, contNode.y + 3);
+            drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), continent.c_str());
+            
+            // Draw countries
+            for (const auto& country : countries) {
+                float percent = (totalValue > 0) ? (country.value / totalValue) * 100.0f : 0.0f;
+                DrawTreemapNode(drawList, country, highlight, spec, data[0], percent);
             }
         }
     }
-
-    // Finalize any remaining nodes
-    if (!currentRow.empty()) {
-        LayoutRow(currentRow, remainingRect, remainingRect.w < remainingRect.h);
-    }
-
-    // 4. Render
-    // Compute percentages for each node (out of 100%)
-    std::vector<float> nodePercentages;
-    if (totalValue > 0) {
-        for (const auto& node : nodes) {
-            nodePercentages.push_back((node.value / totalValue) * 100.0f);
-        }
-    }
-    for (size_t i = 0; i < nodes.size(); ++i) {
-        DrawTreemapNode(drawList, nodes[i], highlight, spec, data[0], (totalValue > 0) ? nodePercentages[i] : 0.0f);
-    }
     
     ImGui::Dummy(avail);
+    
+    // Add legend for continent colors
+    if (!continentMap.empty() && continentGroups.size() > 1) {
+        // Helper to get continent color
+        auto getContinentColor = [](const std::string& continent) -> ImU32 {
+            if (continent == "Africa") return IM_COL32(230, 126, 34, 255);
+            if (continent == "Asia") return IM_COL32(231, 76, 60, 255);
+            if (continent == "Europe") return IM_COL32(52, 152, 219, 255);
+            if (continent == "North America") return IM_COL32(46, 204, 113, 255);
+            if (continent == "South America") return IM_COL32(155, 89, 182, 255);
+            if (continent == "Oceania") return IM_COL32(26, 188, 156, 255);
+            return IM_COL32(149, 165, 166, 255);
+        };
+        
+        ImGui::Spacing();
+        ImGui::Text("Legend:");
+        ImGui::SameLine();
+        
+        // Sort continents by total value for consistent legend order
+        std::vector<std::pair<std::string, float>> sortedContinents;
+        for (const auto& [continent, total] : continentTotals) {
+            sortedContinents.push_back({continent, total});
+        }
+        std::sort(sortedContinents.begin(), sortedContinents.end(),
+                 [](const auto& a, const auto& b) { return a.second > b.second; });
+        
+        for (size_t i = 0; i < sortedContinents.size(); ++i) {
+            const auto& [continent, total] = sortedContinents[i];
+            ImU32 color = getContinentColor(continent);
+            
+            if (i > 0) ImGui::SameLine();
+            
+            // Draw color box
+            ImVec2 cursorPos = ImGui::GetCursorScreenPos();
+            drawList->AddRectFilled(cursorPos, ImVec2(cursorPos.x + 15, cursorPos.y + 15), color);
+            drawList->AddRect(cursorPos, ImVec2(cursorPos.x + 15, cursorPos.y + 15), IM_COL32(255, 255, 255, 100));
+            ImGui::Dummy(ImVec2(15, 15));
+            
+            ImGui::SameLine();
+            ImGui::Text("%s", continent.c_str());
+        }
+    }
+    
+    // Add extra spacing below treemap for scrolling
+    ImGui::Dummy(ImVec2(0, 100));
 }
 
 float GraphRenderer::WorstAspectRatio(const std::vector<TreemapNode*>& row, float sideLength) {
@@ -272,15 +488,26 @@ void GraphRenderer::DrawTreemapNode(void* drawListPtr, const TreemapNode& node,
     pMin.x += 1; pMin.y += 1;
     pMax.x -= 1; pMax.y -= 1;
     if (pMax.x <= pMin.x || pMax.y <= pMin.y) return;
+    
+    // Helper to get continent color
+    auto getContinentColor = [](const std::string& continent) -> ImU32 {
+        if (continent == "Africa") return IM_COL32(230, 126, 34, 255);       // Orange
+        if (continent == "Asia") return IM_COL32(231, 76, 60, 255);          // Red
+        if (continent == "Europe") return IM_COL32(52, 152, 219, 255);       // Blue
+        if (continent == "North America") return IM_COL32(46, 204, 113, 255); // Green
+        if (continent == "South America") return IM_COL32(155, 89, 182, 255); // Purple
+        if (continent == "Oceania") return IM_COL32(26, 188, 156, 255);      // Teal/Cyan
+        return IM_COL32(149, 165, 166, 255);                                    // Gray (Unknown)
+    };
+    
     // Color logic
     ImU32 col;
     bool isHighlighted = (!highlight.empty() && node.label == highlight);
     if (isHighlighted) {
         col = IM_COL32(255, 200, 50, 255); // Bright Yellow/Orange
     } else {
-        size_t hash = std::hash<std::string>{}(node.label);
-        float hue = (hash % 100) / 100.0f;
-        col = ImColor::HSV(hue, 0.6f, 0.7f);
+        // Use continent color
+        col = getContinentColor(node.continent);
     }
     drawList->AddRectFilled(pMin, pMax, col);
     if (isHighlighted) {
@@ -841,6 +1068,7 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
                                 const std::vector<PlotSeries>& data,
                                 const std::string& highlight)
 {
+    // 1. Prepare Features
     if ((g_ActiveFeatures.empty() && g_AvailableFeatures.empty()) || 
         (g_ActiveFeatures.size() + g_AvailableFeatures.size()) != data.size()) {
         g_ActiveFeatures.clear();
@@ -859,13 +1087,20 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
 
     ImGui::BeginGroup();
 
-    if (!ImPlot::BeginPlot(spec.title.c_str(), ImVec2(-1, 400), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoFrame | ImPlotFlags_NoMouseText)) {
+    // 2. Layout Calculation
+    ImVec2 availRegion = ImGui::GetContentRegionAvail();
+    float footerHeight = 60.0f + ImGui::GetStyle().ItemSpacing.y;
+    // Ensure plot has minimum height to avoid collapse, but fill available space otherwise
+    float plotHeight = std::max(availRegion.y - footerHeight, 300.0f);
+
+    if (!ImPlot::BeginPlot(spec.title.c_str(), ImVec2(-1, plotHeight), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoFrame | ImPlotFlags_NoMouseText)) {
         ImGui::EndGroup(); return;
     }
     ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoDecorations | ImPlotAxisFlags_NoHighlight, ImPlotAxisFlags_NoDecorations | ImPlotAxisFlags_NoHighlight);
     ImPlot::SetupAxisLimits(ImAxis_X1, -1, 1, ImPlotCond_Always);
     ImPlot::SetupAxisLimits(ImAxis_Y1, -1, 1, ImPlotCond_Always);
     
+    // Global drop target for the plot
     if (ImPlot::BeginDragDropTargetPlot()) {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("RADAR_FEATURE")) {
             int src = *(int*)payload->Data;
@@ -876,86 +1111,82 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
     }
 
     const int axisCount = (int)g_ActiveFeatures.size();
-    if (axisCount == 0) { ImPlot::EndPlot(); ImGui::EndGroup(); ImGui::EndGroup(); return; }
-
-    ImDrawList* draw = ImPlot::GetPlotDrawList();
-    ImVec2 center = ImPlot::PlotToPixels({0, 0});
-    ImVec2 plotSize = ImPlot::GetPlotSize();
-    float radius = std::min(plotSize.x, plotSize.y) * 0.4f;
-
-    std::vector<float> maxVals(axisCount, 0.0f);
-    for (int a = 0; a < axisCount; ++a)
-        for (float v : g_ActiveFeatures[a].series.values) maxVals[a] = std::max(maxVals[a], v);
-
-    for (int a = 0; a < axisCount; ++a) {
-        float ang = 2 * IM_PI * a / axisCount - IM_PI / 2;
-        ImVec2 p = { center.x + cosf(ang) * radius, center.y + sinf(ang) * radius };
-        draw->AddLine(center, p, IM_COL32(120,120,120,200), 1.0f);
-        ImVec2 labelPos = { center.x + cosf(ang) * (radius + 14), center.y + sinf(ang) * (radius + 14) };
-        const char* labelText = g_ActiveFeatures[a].label.c_str();
-        ImVec2 textSize = ImGui::CalcTextSize(labelText);
-        if (cosf(ang) < -0.1f) labelPos.x -= textSize.x;
-        else if (cosf(ang) <= 0.1f) labelPos.x -= textSize.x * 0.5f;
-        if (sinf(ang) < -0.1f) labelPos.y -= textSize.y * 0.5f;
-        else if (sinf(ang) > 0.1f) labelPos.y += textSize.y * 0.25f;
-        draw->AddText(labelPos, IM_COL32_WHITE, labelText);
-        
-        ImGui::SetCursorScreenPos(labelPos);
-        ImGui::InvisibleButton(("##axis" + std::to_string(a)).c_str(), ImVec2(textSize.x, textSize.y));
-        if (ImGui::BeginDragDropSource()) {
-            ImGui::SetDragDropPayload("RADAR_REMOVE", &a, sizeof(int));
-            ImGui::Text("Remove %s", g_ActiveFeatures[a].label.c_str());
-            ImGui::EndDragDropSource();
-        }
-    }
-    
-    for (int ring = 1; ring <= 4; ++ring) {
-        float rr = radius * ring / 4.0f;
-        for (int a = 0; a < axisCount; ++a) {
-             float a0 = 2 * IM_PI * a / axisCount - IM_PI / 2;
-             float a1 = 2 * IM_PI * (a + 1) / axisCount - IM_PI / 2;
-             draw->AddLine({ center.x + cosf(a0) * rr, center.y + sinf(a0) * rr },
-                           { center.x + cosf(a1) * rr, center.y + sinf(a1) * rr },
-                           IM_COL32(80,80,80,150), 1.0f);
-        }
+    if (axisCount == 0) { 
+        ImPlot::EndPlot(); 
+        goto RenderFooter; 
     }
 
-    const size_t countryCount = g_ActiveFeatures[0].series.values.size();
+    // --- DRAWING LOGIC ---
+    {
+        ImDrawList* draw = ImPlot::GetPlotDrawList();
+        ImVec2 center = ImPlot::PlotToPixels({0, 0});
+        ImVec2 plotSize = ImPlot::GetPlotSize();
+        float radius = std::min(plotSize.x, plotSize.y) * 0.4f;
 
-    // Track polygons for tooltip detection
-    std::vector<std::vector<ImVec2>> allPolygons;
-    allPolygons.reserve(countryCount);
+        std::vector<float> maxVals(axisCount, 0.0f);
+        for (int a = 0; a < axisCount; ++a)
+            for (float v : g_ActiveFeatures[a].series.values) maxVals[a] = std::max(maxVals[a], v);
 
-    for (size_t c = 0; c < countryCount; ++c) {
-        if (labels[c] == highlight) continue;
-
-        ImVec4 colVec = ImColor::HSV((float)c / countryCount, 0.6f, 0.9f);
-        ImU32 col = ImColor(colVec);
-        ImU32 fillCol = IM_COL32((int)(colVec.x * 255), (int)(colVec.y * 255), (int)(colVec.z * 255), 50);
-        std::vector<ImVec2> poly;
-
+        // Draw Axes and Labels
         for (int a = 0; a < axisCount; ++a) {
             float ang = 2 * IM_PI * a / axisCount - IM_PI / 2;
-            float norm = maxVals[a] > 0 ? g_ActiveFeatures[a].series.values[c] / maxVals[a] : 0.0f;
-            poly.push_back({ center.x + cosf(ang) * (norm * radius), center.y + sinf(ang) * (norm * radius) });
+            ImVec2 p = { center.x + cosf(ang) * radius, center.y + sinf(ang) * radius };
+            draw->AddLine(center, p, IM_COL32(120,120,120,200), 1.0f);
+            
+            ImVec2 labelPos = { center.x + cosf(ang) * (radius + 14), center.y + sinf(ang) * (radius + 14) };
+            const char* labelText = g_ActiveFeatures[a].label.c_str();
+            ImVec2 textSize = ImGui::CalcTextSize(labelText);
+            
+            // Adjust label alignment
+            if (cosf(ang) < -0.1f) labelPos.x -= textSize.x;
+            else if (cosf(ang) <= 0.1f) labelPos.x -= textSize.x * 0.5f;
+            if (sinf(ang) < -0.1f) labelPos.y -= textSize.y * 0.5f;
+            else if (sinf(ang) > 0.1f) labelPos.y += textSize.y * 0.25f;
+            
+            draw->AddText(labelPos, IM_COL32_WHITE, labelText);
+            
+            // [CRITICAL FIX START] ---------------------------------------------
+            // We must save the cursor position before moving it to place the button.
+            // If we don't, the next UI element (the Footer) will draw starting from here (middle of the plot).
+            ImVec2 backupCursorPos = ImGui::GetCursorScreenPos();
+            
+            ImGui::SetCursorScreenPos(labelPos);
+            ImGui::InvisibleButton(("##axis" + std::to_string(a)).c_str(), ImVec2(textSize.x, textSize.y));
+            
+            if (ImGui::BeginDragDropSource()) {
+                ImGui::SetDragDropPayload("RADAR_REMOVE", &a, sizeof(int));
+                ImGui::Text("Remove %s", g_ActiveFeatures[a].label.c_str());
+                ImGui::EndDragDropSource();
+            }
+
+            // Restore the cursor so layout flow continues correctly from the bottom of the plot later
+            ImGui::SetCursorScreenPos(backupCursorPos);
+            // [CRITICAL FIX END] -----------------------------------------------
+        }
+        
+        // Grid rings
+        for (int ring = 1; ring <= 4; ++ring) {
+            float rr = radius * ring / 4.0f;
+            for (int a = 0; a < axisCount; ++a) {
+                 float a0 = 2 * IM_PI * a / axisCount - IM_PI / 2;
+                 float a1 = 2 * IM_PI * (a + 1) / axisCount - IM_PI / 2;
+                 draw->AddLine({ center.x + cosf(a0) * rr, center.y + sinf(a0) * rr },
+                               { center.x + cosf(a1) * rr, center.y + sinf(a1) * rr },
+                               IM_COL32(80,80,80,150), 1.0f);
+            }
         }
 
-        allPolygons.push_back(poly);
+        // Draw Polygons
+        const size_t countryCount = g_ActiveFeatures[0].series.values.size();
+        std::vector<std::vector<ImVec2>> allPolygons;
+        allPolygons.reserve(countryCount);
 
-        if (poly.size() >= 3) {
-            for (int i = 0; i < axisCount; ++i) draw->AddTriangleFilled(center, poly[i], poly[(i+1)%axisCount], fillCol);
-        }
-        for (int i = 0; i < axisCount; ++i) {
-            draw->AddLine(poly[i], poly[(i+1)%axisCount], col, 2.0f);
-        }
-    }
-
-    if (!highlight.empty()) {
         for (size_t c = 0; c < countryCount; ++c) {
-            if (labels[c] != highlight) continue;
+            if (labels[c] == highlight) continue;
 
-            ImU32 col = IM_COL32(255, 215, 0, 255); // Gold
-            ImU32 fillCol = IM_COL32(255, 215, 0, 100);
+            ImVec4 colVec = ImColor::HSV((float)c / countryCount, 0.6f, 0.9f);
+            ImU32 col = ImColor(colVec);
+            ImU32 fillCol = IM_COL32((int)(colVec.x * 255), (int)(colVec.y * 255), (int)(colVec.z * 255), 50);
             std::vector<ImVec2> poly;
 
             for (int a = 0; a < axisCount; ++a) {
@@ -964,68 +1195,92 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
                 poly.push_back({ center.x + cosf(ang) * (norm * radius), center.y + sinf(ang) * (norm * radius) });
             }
 
+            allPolygons.push_back(poly);
+
             if (poly.size() >= 3) {
                 for (int i = 0; i < axisCount; ++i) draw->AddTriangleFilled(center, poly[i], poly[(i+1)%axisCount], fillCol);
             }
             for (int i = 0; i < axisCount; ++i) {
-                draw->AddLine(poly[i], poly[(i+1)%axisCount], col, 4.0f);
-                draw->AddCircleFilled(poly[i], 5.0f, col);
+                draw->AddLine(poly[i], poly[(i+1)%axisCount], col, 2.0f);
             }
         }
-    }
-    
-    // Tooltip detection
-    if (ImPlot::IsPlotHovered()) {
-        ImVec2 mousePos = ImGui::GetMousePos();
-        
-        // Helper function to check if point is inside polygon
-        auto isPointInPolygon = [](const ImVec2& point, const std::vector<ImVec2>& polygon) {
-            bool inside = false;
-            int n = polygon.size();
-            for (int i = 0, j = n - 1; i < n; j = i++) {
-                if (((polygon[i].y > point.y) != (polygon[j].y > point.y)) &&
-                    (point.x < (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) + polygon[i].x)) {
-                    inside = !inside;
+
+        // Highlighted Polygon
+        if (!highlight.empty()) {
+            for (size_t c = 0; c < countryCount; ++c) {
+                if (labels[c] != highlight) continue;
+
+                ImU32 col = IM_COL32(255, 215, 0, 255); 
+                ImU32 fillCol = IM_COL32(255, 215, 0, 100);
+                std::vector<ImVec2> poly;
+
+                for (int a = 0; a < axisCount; ++a) {
+                    float ang = 2 * IM_PI * a / axisCount - IM_PI / 2;
+                    float norm = maxVals[a] > 0 ? g_ActiveFeatures[a].series.values[c] / maxVals[a] : 0.0f;
+                    poly.push_back({ center.x + cosf(ang) * (norm * radius), center.y + sinf(ang) * (norm * radius) });
+                }
+
+                if (poly.size() >= 3) {
+                    for (int i = 0; i < axisCount; ++i) draw->AddTriangleFilled(center, poly[i], poly[(i+1)%axisCount], fillCol);
+                }
+                for (int i = 0; i < axisCount; ++i) {
+                    draw->AddLine(poly[i], poly[(i+1)%axisCount], col, 4.0f);
+                    draw->AddCircleFilled(poly[i], 5.0f, col);
                 }
             }
-            return inside;
-        };
-        
-        // Check each country's polygon
-        int hoveredCountry = -1;
-        for (size_t c = 0; c < allPolygons.size(); ++c) {
-            if (!allPolygons[c].empty() && isPointInPolygon(mousePos, allPolygons[c])) {
-                hoveredCountry = (int)c;
-                break;
-            }
         }
         
-        // Display tooltip for hovered country
-        if (hoveredCountry >= 0) {
-            // Adjust index if highlight country was skipped
-            int actualIndex = hoveredCountry;
-            if (!highlight.empty()) {
-                for (int i = 0; i <= hoveredCountry; ++i) {
-                    if (labels[i] == highlight) {
-                        actualIndex++;
-                        break;
+        // Tooltip logic
+        if (ImPlot::IsPlotHovered()) {
+            ImVec2 mousePos = ImGui::GetMousePos();
+            auto isPointInPolygon = [](const ImVec2& point, const std::vector<ImVec2>& polygon) {
+                bool inside = false;
+                int n = (int)polygon.size();
+                for (int i = 0, j = n - 1; i < n; j = i++) {
+                    if (((polygon[i].y > point.y) != (polygon[j].y > point.y)) &&
+                        (point.x < (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) + polygon[i].x)) {
+                        inside = !inside;
                     }
+                }
+                return inside;
+            };
+            
+            int hoveredCountry = -1;
+            for (size_t c = 0; c < allPolygons.size(); ++c) {
+                if (!allPolygons[c].empty() && isPointInPolygon(mousePos, allPolygons[c])) {
+                    hoveredCountry = (int)c;
+                    break;
                 }
             }
             
-            if (actualIndex < (int)countryCount) {
-                ImGui::BeginTooltip();
-                ImGui::Text("%s", labels[actualIndex].c_str());
-                ImGui::Separator();
-                for (int a = 0; a < axisCount; ++a) {
-                    ImGui::Text("%s: %.2f", g_ActiveFeatures[a].label.c_str(), g_ActiveFeatures[a].series.values[actualIndex]);
+            if (hoveredCountry >= 0) {
+                int actualIndex = hoveredCountry;
+                if (!highlight.empty()) {
+                    for (int i = 0; i <= hoveredCountry; ++i) {
+                        if (labels[i] == highlight) {
+                            actualIndex++;
+                            break;
+                        }
+                    }
                 }
-                ImGui::EndTooltip();
+                if (actualIndex < (int)countryCount) {
+                    ImGui::BeginTooltip();
+                    ImGui::Text("%s", labels[actualIndex].c_str());
+                    ImGui::Separator();
+                    for (int a = 0; a < axisCount; ++a) {
+                        ImGui::Text("%s: %.2f", g_ActiveFeatures[a].label.c_str(), g_ActiveFeatures[a].series.values[actualIndex]);
+                    }
+                    ImGui::EndTooltip();
+                }
             }
         }
     }
+    // --- END DRAWING LOGIC ---
 
     ImPlot::EndPlot();
+
+RenderFooter:
+    ImGui::Separator();
     
     // Feature panel at the bottom - horizontal layout
     ImGui::BeginChild("FeaturePanel", ImVec2(0, 60), true, ImGuiWindowFlags_HorizontalScrollbar);
@@ -1038,7 +1293,6 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
         ImGui::SetCursorPos(ImVec2((avail.x - textSize.x) * 0.5f, (avail.y - textSize.y) * 0.5f));
         ImGui::TextDisabled("%s", placeholderText);
     } else {
-        // Available features list - horizontal
         for (size_t i = 0; i < g_AvailableFeatures.size(); ++i) {
             if (i > 0) ImGui::SameLine();
             ImGui::PushID((int)i);
