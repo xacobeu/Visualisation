@@ -53,7 +53,7 @@ void DataHandler::init() {
         "Forest_Land",
         "Other_Land",
         "Agricultural_Land",
-        "Arable_Land (% of Total Agricultural Land)"
+        "Arable_Land_percent"
     });
 }
 
@@ -135,11 +135,22 @@ std::unordered_map<std::string, float> DataHandler::getColumnForAllCountries(con
 
 DataHandler::ColumnData DataHandler::getColumnWithUnitForAllCountries(const std::string& column) {
     ColumnData result;
+
+    static const std::unordered_set<std::string> divergingColumns = {
+        "Population_Growth_Rate",
+        "Net_Migration_Rate",
+        "Real_GDP_Growth_Rate_percent",
+        "Budget_Surplus_billion_USD", 
+        "Lowest_Elevation"
+    };
+
+    result.isDiverging = (divergingColumns.find(column) != divergingColumns.end());
+
     for (const auto& [country, data] : loadedData) {
         auto it = data.find(column);
         if (it != data.end() && it->second.isNumeric()) {
             float val = it->second.asFloat();
-            if (val > 0.0f) {
+            if (result.isDiverging ? (val != 0.0f) : (val > 0.0f)) {
                 result.values[country] = val;
                 if (result.unit.empty() && !it->second.unit.empty()) result.unit = it->second.unit;
             }

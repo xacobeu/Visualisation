@@ -21,14 +21,14 @@ struct DataValue {
 
 struct PlotSeries {
     std::string name;
-    std::string unit;  // Unit for this series (extracted from column name or data)
+    std::string unit;
     std::vector<float> values;
 };
 
 class DataHandler {
 public:
     DataHandler();
-    void init(); // Load all initial CSVs
+    void init();
 
     // Extract numerical data for a specific list of countries and columns
     std::vector<PlotSeries> collectSeries(
@@ -42,17 +42,13 @@ public:
     // Get data with units for all countries for a single column (for choropleth with tooltip units)
     struct ColumnData {
         std::unordered_map<std::string, float> values;
-        std::string unit;  // Common unit for this column (from first non-empty entry)
+        std::string unit;
+        bool isDiverging = false;
     };
     ColumnData getColumnWithUnitForAllCountries(const std::string& column);
     
-    // Get all available columns
     std::vector<std::string> getAvailableColumns() const;
-
-    // Added: Get all country names loaded in memory
     std::vector<std::string> getAllCountryNames() const;
-    
-    // Get continent for a country
     std::string getContinent(const std::string& countryName) const;
 
 private:

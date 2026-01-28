@@ -34,6 +34,10 @@ private:
     
     // Choropleth state
     int selectedChoroplethColumn = -1;
+    bool currentIsDiverging = false;
+    float currentMinVal = 0.0f;
+    float currentMaxVal = 0.0f;
+
     std::vector<std::string> availableColumns;
     int currentMapTab = 0;  // 0 = Selection, 1 = Choropleth
 
@@ -60,4 +64,5 @@ private:
     // Constants for styling
     static constexpr float SEPARATOR_TEXT_SCALE = 1.5f;
     static constexpr float DEFAULT_TEXT_SCALE = 1.0f;
+    
 };

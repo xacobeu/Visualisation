@@ -1,7 +1,9 @@
 #include "UILayer.hpp"
 #include "MapLayer.hpp"
 
+#include <implot.h>
 #include <imgui.h>
+
 #include <algorithm>
 #include <cstring> // For memset, strncpy
 #include <iostream>
@@ -300,7 +302,7 @@ void UILayer::renderSearchBar() {
                         // On click: Set the buffer to the full name. 
                         // The 'onUpdate' loop will pick this up and set 'highlightCountry'
                         memset(searchBuffer, 0, sizeof(searchBuffer));
-                        strncpy(searchBuffer, country.c_str(), sizeof(searchBuffer) - 1);
+                        strncpy_s(searchBuffer, country.c_str(), sizeof(searchBuffer) - 1);
                         searchBuffer[sizeof(searchBuffer) - 1] = '\0';
                     }
                 }
@@ -324,19 +326,26 @@ void UILayer::renderChoroplethControls() {
         for (int i = 0; i < (int)availableColumns.size(); ++i) {
             bool isSelected = (selectedChoroplethColumn == i);
             if (ImGui::Selectable(availableColumns[i].c_str(), isSelected)) {
-                selectedChoroplethColumn = i;
                 
+                selectedChoroplethColumn = i;
                 auto columnData = dataManager->getColumnWithUnitForAllCountries(availableColumns[i]);
+                
+                currentIsDiverging = columnData.isDiverging;
+                
+                currentMinVal = std::numeric_limits<float>::max();
+                currentMaxVal = std::numeric_limits<float>::lowest();
                 
                 std::unordered_map<std::string, float> isoData;
                 for (const auto& [countryName, value] : columnData.values) {
                     std::string isoCode = mapLayer->getIsoCodeFromName(countryName);
                     if (!isoCode.empty()) {
                         isoData[isoCode] = value;
+                        if (value < currentMinVal) currentMinVal = value;
+                        if (value > currentMaxVal) currentMaxVal = value;
                     }
                 }
                 
-                mapLayer->applyChoropleth(isoData, columnData.unit);
+                mapLayer->applyChoropleth(isoData, columnData.unit, columnData.isDiverging);
             }
             if (isSelected) ImGui::SetItemDefaultFocus();
         }
@@ -346,25 +355,68 @@ void UILayer::renderChoroplethControls() {
     if (mapLayer->isChoroplethActive()) {
         ImGui::Spacing();
         ImGui::TextDisabled("Legend:");
+        
         ImDrawList* drawList = ImGui::GetWindowDrawList();
         ImVec2 pos = ImGui::GetCursorScreenPos();
         float width = ImGui::GetContentRegionAvail().x;
-        float height = 15.0f;
+        float height = 20.0f;
         
-        int segments = 50;
+        // Resolve Colormap ID
+        ImPlotColormap mapId;
+        if (currentIsDiverging) {
+            // Attempt to find the custom map by name
+            mapId = ImPlot::GetColormapIndex("PrGn_Custom");
+            // Fallback to RdBu if the custom one wasn't registered yet
+            if (mapId == -1) mapId = ImPlotColormap_RdBu; 
+        } else {
+            mapId = ImPlotColormap_Viridis;
+        }
+
+        // Draw Gradient
+        int segments = 64;
         float segWidth = width / segments;
+
         for (int i = 0; i < segments; ++i) {
-            float t = (float)i / (segments - 1);
-            float r = 0.8f - t * 0.7f;
-            float g = 0.9f - t * 0.7f;
-            float b = 1.0f - t * 0.4f;
-            ImU32 col = IM_COL32((int)(r*255), (int)(g*255), (int)(b*255), 255);
-            drawList->AddRectFilled(ImVec2(pos.x + i * segWidth, pos.y), ImVec2(pos.x + (i + 1) * segWidth, pos.y + height), col);
+            float t = (float)i / (float)(segments - 1);
+            ImVec4 c = ImPlot::SampleColormap(t, mapId);
+            ImU32 col = ImGui::ColorConvertFloat4ToU32(c);
+            
+            drawList->AddRectFilled(
+                ImVec2(pos.x + i * segWidth, pos.y), 
+                ImVec2(pos.x + (i + 1) * segWidth, pos.y + height), 
+                col
+            );
         }
         ImGui::Dummy(ImVec2(width, height));
-        ImGui::TextDisabled("Low");
-        ImGui::SameLine(width - ImGui::CalcTextSize("High").x);
-        ImGui::TextDisabled("High");
+
+        // Draw Labels (Perfectly Aligned)
+        
+        // Format strings first to calculate exact sizes
+        char minBuf[32]; 
+        snprintf(minBuf, sizeof(minBuf), "%.1f", currentMinVal);
+        
+        char maxBuf[32]; 
+        snprintf(maxBuf, sizeof(maxBuf), "%.1f", currentMaxVal);
+
+        float startX = ImGui::GetCursorPosX();
+
+        // --- Left Label (Min) ---
+        ImGui::Text("%s", minBuf);
+
+        // --- Center Label ("0") ---
+        if (currentIsDiverging) {
+            const char* midStr = "0";
+            float midTextWidth = ImGui::CalcTextSize(midStr).x;
+            ImGui::SameLine();
+            ImGui::SetCursorPosX(startX + (width * 0.5f) - (midTextWidth * 0.5f));
+            ImGui::Text("%s", midStr);
+        }
+
+        // --- Right Label (Max) ---
+        float maxTextWidth = ImGui::CalcTextSize(maxBuf).x;
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(startX + width - maxTextWidth);
+        ImGui::Text("%s", maxBuf);
     }
 }
 

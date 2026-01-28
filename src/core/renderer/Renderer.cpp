@@ -11,7 +11,7 @@
 
 void Renderer::begin(int width, int height) {
     glViewport(0, 0, width, height);
-    glClearColor(0.1f, 0.4f, 0.7f, 1.0f);
+    glClearColor(0.05f, 0.2f, 0.35f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
 }

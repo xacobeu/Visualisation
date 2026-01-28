@@ -1,4 +1,4 @@
-Country,Continent,Area_Total,Highest_Elevation,Lowest_Elevation,Forest_Land,Other_Land,Agricultural_Land,Arable_Land (%% of Total Agricultural Land)
+Country,Continent,Area_Total,Highest_Elevation,Lowest_Elevation,Forest_Land,Other_Land,Agricultural_Land,Arable_Land_percent
 Afghanistan,Asia,"652,230 sq km","7,492 m",258 m,1.8%,40.1%,58.1%,11.8%
 Albania,Europe,"28,748 sq km","2,764 m",0 m,28.8%,28.2%,42.8%,22.3%
 Algeria,Africa,"2,381,740 sq km","2,908 m",-40 m,0.8%,81.8%,17.4%,3.2%

@@ -62,7 +62,7 @@ public:
     const std::unordered_set<std::string>& getSelectedCountries() const { return selectedCountries; }
     
     // --- Choropleth Logic ---
-    void applyChoropleth(const std::unordered_map<std::string, float>& countryValues, const std::string& unit);
+    void applyChoropleth(const std::unordered_map<std::string, float>& countryValues, const std::string& unit, bool isDiverging);
     void clearChoropleth();
     bool isChoroplethActive() const { return choroplethActive; }
     
@@ -97,6 +97,7 @@ public:
     struct Point { double x, y; };
 
 private:
+
     struct CountryMetadata {
         std::string name;
         std::vector<std::vector<Point>> rawPolygons;

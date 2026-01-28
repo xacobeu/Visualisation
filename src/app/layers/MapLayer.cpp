@@ -1,9 +1,7 @@
 #include "MapLayer.hpp"
 #include "imgui.h"
+#include "implot.h"
 
-// --- CRITICAL INCLUDES ---
-
-// External libraries
 #include <nlohmann/json.hpp>
 #include <mapbox/earcut.hpp>
 
@@ -187,36 +185,76 @@ void MapLayer::updateCountryColor(const std::string& isoCode) {
     setCountryColor(isoCode, baseColor.x, baseColor.y, baseColor.z, baseColor.w);
 }
 
-void MapLayer::applyChoropleth(const std::unordered_map<std::string, float>& countryValues, const std::string& unit) {
+void MapLayer::applyChoropleth(const std::unordered_map<std::string, float>& countryValues, const std::string& unit, bool isDiverging) {
     if (countryValues.empty()) return;
-    
+
+    // 1. Calculate Min/Max
     float minVal = std::numeric_limits<float>::max();
     float maxVal = std::numeric_limits<float>::lowest();
-    
+
     for (const auto& [isoCode, value] : countryValues) {
         if (countries.find(isoCode) != countries.end()) {
             minVal = std::min(minVal, value);
             maxVal = std::max(maxVal, value);
         }
     }
-    
-    float range = maxVal - minVal;
-    if (range < 0.0001f) range = 1.0f;
-    
+
+    // Prepare Sequential Range (used if !isDiverging)
+    float rangeSeq = maxVal - minVal;
+    if (rangeSeq < 0.0001f) rangeSeq = 1.0f;
+
     choroplethActive = true;
     choroplethColors.clear();
     choroplethValues = countryValues;
     choroplethUnit = unit;
-    
+
+    // 2. Select Colormap
+    ImPlotColormap mapId = isDiverging ? ImPlotColormap_RdBu : ImPlotColormap_Viridis;
+
+    // 3. Apply Colors
     for (const auto& [id, meta] : countries) {
         Vector4 col;
         auto it = countryValues.find(id);
+        
         if (it != countryValues.end()) {
-            float normalized = (it->second - minVal) / range;
-            col = valueToColor(normalized);
+            float val = it->second;
+            float normalized = 0.0f;
+
+            if (isDiverging) {
+                // --- DIVERGING LOGIC (Piecewise) ---
+                if (val < 0.0f) {
+                    // Negative side: Map [minVal, 0] -> [0.0, 0.5]
+                    // If minVal is 0 (no negatives), this branch is skipped naturally or val=0 handled below
+                    if (std::abs(minVal) > 0.0001f) {
+                        float ratio = (val - minVal) / (0.0f - minVal); // 0.0 to 1.0 within negative leg
+                        normalized = ratio * 0.5f;                      // Scale to 0.0 to 0.5
+                    } else {
+                        normalized = 0.5f; // Should not happen if val < 0
+                    }
+                } else {
+                    // Positive side: Map [0, maxVal] -> [0.5, 1.0]
+                    if (maxVal > 0.0001f) {
+                        float ratio = val / maxVal;       // 0.0 to 1.0 within positive leg
+                        normalized = 0.5f + (ratio * 0.5f); // Scale to 0.5 to 1.0
+                    } else {
+                        normalized = 0.5f;
+                    }
+                }
+            } else {
+                // --- SEQUENTIAL LOGIC (Linear) ---
+                // Map [minVal, maxVal] -> [0.0, 1.0]
+                normalized = (val - minVal) / rangeSeq;
+            }
+
+            // Clamp to safety
+            normalized = std::max(0.0f, std::min(1.0f, normalized));
+
+            ImVec4 imColor = ImPlot::SampleColormap(normalized, mapId);
+            col = {imColor.x, imColor.y, imColor.z, imColor.w};
         } else {
             col = NO_DATA_COUNTRY_COLOR;
         }
+        
         choroplethColors[id] = col;
         updateCountryColor(id);
     }
@@ -253,6 +291,7 @@ void MapLayer::onUpdate(float) {
 }
 
 void MapLayer::onRender(Renderer&) {
+
     ViewMetrics vm = calculateViewMetrics();
     Matrix4 projection = Matrix4::ortho(-vm.width, vm.width, -vm.height, vm.height, -100.0f, 100.0f);
     Matrix4 view = Matrix4::identity();
