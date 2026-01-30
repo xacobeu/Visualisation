@@ -1012,6 +1012,8 @@ void UILayer::renderCustomTreeMapBuilder(const std::string& hoverCountry) {
     for (const auto& id : selectedCountries) {
         countryNames.push_back(mapLayer->getCountryName(id));
     }
+    // IMPORTANT: Sort to match the order used by GraphRenderer highlighting
+    std::sort(countryNames.begin(), countryNames.end());
     
     // Filter columns suitable for treemaps 
     static std::vector<std::string> treemapCompatibleColumns;
