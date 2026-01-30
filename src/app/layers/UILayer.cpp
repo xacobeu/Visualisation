@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstring> // For memset, strncpy
 #include <iostream>
+#include <limits>
 #include <unordered_set>
 
 UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
@@ -15,7 +16,7 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
 
     // Radar Graph Spec
     radarSpec.type = GraphType::Radar;
-    radarSpec.title = "";
+    radarSpec.title = "Radar Chart";
     radarSpec.xLabel = "Metrics";
     radarSpec.yLabel = "Values";
     radarSpec.series.columns = {
@@ -53,7 +54,7 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
 
     // SPLOM Graph Spec
     splomSpec.type = GraphType::SPLOM;
-    splomSpec.title = "";
+    splomSpec.title = "Scatterplot Matrix (SPLOM)";
     splomSpec.xLabel = "Indicators";
     splomSpec.yLabel = "Indicators";
     splomSpec.series.columns = {
@@ -91,7 +92,7 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
 
     // Treemap Spec
     treemapSpec.type = GraphType::TreeMap;
-    treemapSpec.title = "";
+    treemapSpec.title = "Treemap";
     treemapSpec.xLabel = "";
     treemapSpec.yLabel = "";
     treemapSpec.series.columns = { "Real_GDP_PPP_billion_USD" };
@@ -157,12 +158,28 @@ void UILayer::onUpdate(float) {
     std::string hoverCountry = "";
     std::string searchCountry = "";
     
-    // 1. Check Search Bar (Exact Match Logic)
+    // 1. Check Search Bar (Exact or Partial Match Logic)
     if (strlen(searchBuffer) > 0) {
          std::string s(searchBuffer);
          // Check if the buffer matches a known country exactly
          if (std::find(cachedCountryNames.begin(), cachedCountryNames.end(), s) != cachedCountryNames.end()) {
              searchCountry = s;
+         } else {
+             // Try partial match - only highlight if there's exactly one match
+             std::string query = s;
+             std::transform(query.begin(), query.end(), query.begin(), ::tolower);
+             std::vector<std::string> matches;
+             for (const auto& country : cachedCountryNames) {
+                 std::string countryLower = country;
+                 std::transform(countryLower.begin(), countryLower.end(), countryLower.begin(), ::tolower);
+                 if (countryLower.find(query) != std::string::npos) {
+                     matches.push_back(country);
+                 }
+             }
+             // Only use partial match if there's exactly one result
+             if (matches.size() == 1) {
+                 searchCountry = matches[0];
+             }
          }
     }
 
@@ -191,48 +208,71 @@ void UILayer::onUpdate(float) {
         mapLayer->setSearchHighlight("");
     }
     
-    // Update map with brushed selection from graphs
-    std::unordered_set<std::string> brushedIsos;
+    // Update map with brushed selection and filtered countries from graphs
+    std::unordered_set<std::string> highlightedIsos;
+    
+    // Get the same sorted countryNames as used in graphs
+    std::vector<std::string> countryNames;
+    const auto& selectedIds = mapLayer->getSelectedCountries();
+    countryNames.reserve(selectedIds.size());
+    for (const auto& id : selectedIds) {
+        countryNames.push_back(mapLayer->getCountryName(id));
+    }
+    std::sort(countryNames.begin(), countryNames.end());
+    
+    // Add brushed countries (from SPLOM/graph selection)
     if (GraphRenderer::s_HasSelection && !GraphRenderer::s_HighlightedPoints.empty()) {
-        // Use the same sorted countryNames as the graphs
-        std::vector<std::string> countryNames;
-        const auto& selectedIds = mapLayer->getSelectedCountries();
-        countryNames.reserve(selectedIds.size());
-        for (const auto& id : selectedIds) {
-            countryNames.push_back(mapLayer->getCountryName(id));
-        }
-        std::sort(countryNames.begin(), countryNames.end());
         for (size_t i = 0; i < countryNames.size() && i < GraphRenderer::s_HighlightedPoints.size(); ++i) {
             if (GraphRenderer::s_HighlightedPoints[i]) {
                 std::string iso = mapLayer->getIsoCodeFromName(countryNames[i]);
                 if (!iso.empty()) {
-                    brushedIsos.insert(iso);
+                    highlightedIsos.insert(iso);
                 }
             }
         }
     }
-    mapLayer->setHighlightedCountries(brushedIsos);
+    
+    // Add filtered countries (from filter controls)
+    if (GraphRenderer::s_HasFilter && !GraphRenderer::s_FilteredPoints.empty()) {
+        for (size_t i = 0; i < countryNames.size() && i < GraphRenderer::s_FilteredPoints.size(); ++i) {
+            if (GraphRenderer::s_FilteredPoints[i]) {
+                std::string iso = mapLayer->getIsoCodeFromName(countryNames[i]);
+                if (!iso.empty()) {
+                    highlightedIsos.insert(iso);
+                }
+            }
+        }
+    }
+    
+    mapLayer->setHighlightedCountries(highlightedIsos);
 
     // --- Main Panel: Graphs ---
     if (ImGui::Begin("Graphs")) {
-
-        // --- SEARCH BAR (Now filters selected countries only) ---
-        renderSearchBar();
-        ImGui::Separator();
-
         const auto& selectedIds = mapLayer->getSelectedCountries();
-
-        if (selectedIds.empty()) {
-            ImGui::TextDisabled("Click on the map to select countries.");
-        } else {
-            // Convert IDs to Names and Sort Alphabetically.
-            std::vector<std::string> countryNames;
+        std::vector<std::string> countryNames;
+        if (!selectedIds.empty()) {
             countryNames.reserve(selectedIds.size());
             for (const auto& id : selectedIds) {
                 countryNames.push_back(mapLayer->getCountryName(id));
             }
             std::sort(countryNames.begin(), countryNames.end());
+        }
 
+        const float sidebarWidth = 280.0f;
+        ImGui::BeginChild("GraphsSidebar", ImVec2(sidebarWidth, 0), true);
+        renderSearchBar();
+        ImGui::Separator();
+        renderGraphFilterSection(countryNames);
+        ImGui::Separator();
+        renderCategoricalFilterSection(countryNames);
+        ImGui::EndChild();
+
+        ImGui::SameLine();
+        ImGui::BeginChild("GraphsContent", ImVec2(0, 0), false);
+
+        if (selectedIds.empty()) {
+            ImGui::TextDisabled("Click on the map to select countries.");
+        } else {
             // SPLOM - keep original spec, add other columns to data only
             std::vector<std::string> splomAllColumns = splomSpec.series.columns;
             for (const auto& col : availableColumns) {
@@ -257,35 +297,29 @@ void UILayer::onUpdate(float) {
             addSeparatorText("Treemap");
             const char* treemapMetrics[] = {
                 "Fixed Telephone Subscriptions", "Mobile Cellular Subscriptions", "Total Internet Users", 
-                "Fixed Broadband Subscriptions", "Total Population", "Population Growth Rate", "Birth Rate", 
-                "Death Rate", "Net Migration Rate", "Median Age", "Sex Ratio", "Infant Mortality Rate", 
+                "Fixed Broadband Subscriptions", "Total Population", "Sex Ratio", "Infant Mortality Rate", 
                 "Total Fertility Rate", "Total Literacy Rate", "Male Literacy Rate", "Female Literacy Rate", 
-                "Youth Unemployment Rate", "Real GDP (PPP) $B", "GDP (Official Exchange) $B", 
-                "Real GDP Growth Rate %", "Real GDP per Capita $", "Unemployment Rate %", 
-                "Youth Unemployment Rate %", "Budget $B", "Budget Surplus $B", 
-                "Budget Deficit % of GDP", "Public Debt % of GDP", "Exports $B", 
-                "Imports $B", "Exchange Rate per USD", "Population Below Poverty Line %", 
-                "Electricity Access %", "Electricity Generating Capacity kW", "Coal (Metric Tons)", 
+                "Real GDP (PPP) $B", "GDP (Official Exchange) $B", 
+                "Budget $B", "Budget Surplus $B", "Exports $B", 
+                "Imports $B", 
+                "Electricity Generating Capacity kW", "Coal (Metric Tons)", 
                 "Petroleum (bbl/day)", "Refined Petroleum Products (bbl/day)", "Refined Petroleum Exports (bbl/day)", 
                 "Refined Petroleum Imports (bbl/day)", "Natural Gas (cu m)", "CO2 Emissions (Mt)", 
-                "Total Area", "Highest Elevation", "Lowest Elevation", "Forest Land", "Other Land", 
-                "Agricultural Land", "Arable Land %",
+                "Total Area", "Forest Land", "Other Land", 
+                "Agricultural Land",
             };
             const char* treemapColumns[] = {
                 "telephone_fixed_subscriptions_total", "mobile_cellular_subscriptions_total", "internet_users_total", 
-                "broadband_fixed_subscriptions_total", "Total_Population", "Population_Growth_Rate", "Birth_Rate", 
-                "Death_Rate", "Net_Migration_Rate", "Median_Age", "Sex_Ratio", "Infant_Mortality_Rate", 
+                "broadband_fixed_subscriptions_total", "Total_Population", "Sex_Ratio", "Infant_Mortality_Rate", 
                 "Total_Fertility_Rate", "Total_Literacy_Rate", "Male_Literacy_Rate", "Female_Literacy_Rate", 
-                "Youth_Unemployment_Rate", "Real_GDP_PPP_billion_USD", "GDP_Official_Exchange_Rate_billion_USD", 
-                "Real_GDP_Growth_Rate_percent", "Real_GDP_per_Capita_USD", "Unemployment_Rate_percent", 
-                "Youth_Unemployment_Rate_percent", "Budget_billion_USD", "Budget_Surplus_billion_USD", 
-                "Budget_Deficit_percent_of_GDP", "Public_Debt_percent_of_GDP", "Exports_billion_USD", 
-                "Imports_billion_USD", "Exchange_Rate_per_USD", "Population_Below_Poverty_Line_percent", 
-                "electricity_access_percent", "electricity_generating_capacity_kW", "coal_metric_tons", 
+                "Real_GDP_PPP_billion_USD", "GDP_Official_Exchange_Rate_billion_USD", 
+                "Budget_billion_USD", "Budget_Surplus_billion_USD", "Exports_billion_USD", 
+                "Imports_billion_USD", 
+                "electricity_generating_capacity_kW", "coal_metric_tons", 
                 "petroleum_bbl_per_day", "refined_petroleum_products_bbl_per_day", "refined_petroleum_exports_bbl_per_day", 
                 "refined_petroleum_imports_bbl_per_day", "natural_gas_cubic_meters", "carbon_dioxide_emissions_Mt", 
-                "Area_Total", "Highest_Elevation", "Lowest_Elevation", "Forest_Land", "Other_Land", 
-                "Agricultural_Land", "Arable_Land_percent"
+                "Area_Total", "Forest_Land", "Other_Land", 
+                "Agricultural_Land",
             };
             
             if (ImGui::Combo("Treemap Metric", &selectedTreemapMetric, treemapMetrics, IM_ARRAYSIZE(treemapMetrics))) {
@@ -309,6 +343,8 @@ void UILayer::onUpdate(float) {
             // Custom TreeMap Builder
             renderCustomTreeMapBuilder(hoverCountry);
         }
+
+        ImGui::EndChild();
     }
     ImGui::End();
 
@@ -393,6 +429,375 @@ void UILayer::renderSearchBar() {
         }
         ImGui::EndChild();
     }
+}
+
+void UILayer::renderGraphFilterSection(const std::vector<std::string>& countryNames) {
+    addSeparatorText("Numeric Filters");
+
+    if (availableColumns.empty()) {
+        ImGui::TextDisabled("No metrics available for filtering.");
+        GraphRenderer::s_HasFilter = false;
+        GraphRenderer::s_FilteredPoints.clear();
+        return;
+    }
+
+    ImGui::Checkbox("Enable numeric filters", &graphFilterEnabled);
+
+    // Prepare column labels
+    std::vector<std::string> columnLabels;
+    columnLabels.reserve(availableColumns.size());
+    for (const auto& col : availableColumns) {
+        auto it = std::find(radarSpec.series.columns.begin(), radarSpec.series.columns.end(), col);
+        if (it != radarSpec.series.columns.end()) {
+            size_t idx = std::distance(radarSpec.series.columns.begin(), it);
+            if (idx < radarSpec.series.labels.size()) {
+                columnLabels.push_back(radarSpec.series.labels[idx]);
+            } else {
+                columnLabels.push_back(col);
+            }
+        } else {
+            columnLabels.push_back(col);
+        }
+    }
+
+    if (!graphFilterEnabled || countryNames.empty()) {
+        if (countryNames.empty()) {
+            ImGui::TextDisabled("Select countries to apply filters.");
+        }
+        // Clear numeric filter highlighting when disabled
+        if (!categoricalFilterEnabled) {
+            GraphRenderer::s_HasFilter = false;
+            GraphRenderer::s_FilteredPoints.clear();
+        }
+        return;
+    }
+    
+    // Add new filter button
+    if (ImGui::Button("+ Add Filter##Numeric")) {
+        numericFilters.push_back(NumericFilter());
+    }
+    
+    if (numericFilters.empty()) {
+        ImGui::TextDisabled("Click '+ Add Filter' to create a filter.");
+        // Clear filter state if no filters remain and categorical is also empty/disabled
+        if (!categoricalFilterEnabled || categoricalFilters.empty()) {
+            GraphRenderer::s_HasFilter = false;
+            GraphRenderer::s_FilteredPoints.clear();
+        }
+        return;
+    }
+    
+    ImGui::Separator();
+    
+    // Display each filter
+    int filterToRemove = -1;
+    int totalMatchCount = 0;
+    
+    for (size_t filterIdx = 0; filterIdx < numericFilters.size(); ++filterIdx) {
+        auto& filter = numericFilters[filterIdx];
+        
+        ImGui::PushID(static_cast<int>(filterIdx));
+        
+        // Filter header with remove button
+        ImGui::Text("Filter %zu", filterIdx + 1);
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - 60);
+        if (ImGui::SmallButton("Remove")) {
+            filterToRemove = static_cast<int>(filterIdx);
+        }
+        
+        // Ensure column index is valid
+        if (filter.columnIndex < 0 || filter.columnIndex >= static_cast<int>(availableColumns.size())) {
+            filter.columnIndex = 0;
+        }
+        
+        const char* previewValue = (filter.columnIndex >= 0 && filter.columnIndex < static_cast<int>(columnLabels.size()))
+            ? columnLabels[filter.columnIndex].c_str()
+            : "Select metric...";
+        
+        // Metric selector
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::BeginCombo("##Metric", previewValue)) {
+            for (int i = 0; i < static_cast<int>(columnLabels.size()); ++i) {
+                bool isSelected = (filter.columnIndex == i);
+                if (ImGui::Selectable(columnLabels[i].c_str(), isSelected)) {
+                    filter.columnIndex = i;
+                    filter.lastColumnIndex = -1; // Trigger data reload
+                }
+                if (isSelected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+        
+        const std::string& columnName = availableColumns[filter.columnIndex];
+        auto columnData = dataManager->getColumnWithUnitForAllCountries(columnName);
+        
+        if (columnData.values.empty()) {
+            ImGui::TextDisabled("No numeric data available for this metric.");
+            ImGui::PopID();
+            continue;
+        }
+        
+        // Calculate min/max from data
+        float dataMin = std::numeric_limits<float>::max();
+        float dataMax = std::numeric_limits<float>::lowest();
+        for (const auto& entry : columnData.values) {
+            dataMin = std::min(dataMin, entry.second);
+            dataMax = std::max(dataMax, entry.second);
+        }
+        
+        // Initialize range if column changed
+        if (filter.lastColumnIndex != filter.columnIndex) {
+            filter.minValue = dataMin;
+            filter.maxValue = dataMax;
+            filter.dataMin = dataMin;
+            filter.dataMax = dataMax;
+            filter.unit = columnData.unit;
+            filter.lastColumnIndex = filter.columnIndex;
+        }
+        
+        const float range = std::max(0.01f, dataMax - dataMin);
+        const float step = range / 200.0f;
+        
+        ImGui::SetNextItemWidth(-1);
+        ImGui::DragFloatRange2("##ValueRange", &filter.minValue, &filter.maxValue, step, dataMin, dataMax, "Min: %.2f", "Max: %.2f");
+        if (filter.minValue > filter.maxValue) {
+            std::swap(filter.minValue, filter.maxValue);
+        }
+        
+        ImGui::Text("Unit: %s", filter.unit.empty() ? "n/a" : filter.unit.c_str());
+        
+        if (filterIdx < numericFilters.size() - 1) {
+            ImGui::Separator();
+        }
+        
+        ImGui::PopID();
+    }
+    
+    // Remove filter if requested
+    if (filterToRemove >= 0) {
+        numericFilters.erase(numericFilters.begin() + filterToRemove);
+        // If all numeric filters removed and no categorical filters, clear highlighting
+        if (numericFilters.empty() && !categoricalFilterEnabled) {
+            GraphRenderer::s_HasFilter = false;
+            GraphRenderer::s_FilteredPoints.clear();
+        }
+    }
+    
+    // Apply all numeric filters (AND logic)
+    if (GraphRenderer::s_FilteredPoints.size() != countryNames.size()) {
+        GraphRenderer::s_FilteredPoints.assign(countryNames.size(), false);
+    }
+    
+    for (size_t i = 0; i < countryNames.size(); ++i) {
+        bool matchesAll = true;
+        
+        // Check if country matches ALL numeric filters
+        for (const auto& filter : numericFilters) {
+            const std::string& columnName = availableColumns[filter.columnIndex];
+            auto columnData = dataManager->getColumnWithUnitForAllCountries(columnName);
+            
+            auto it = columnData.values.find(countryNames[i]);
+            if (it == columnData.values.end() || it->second < filter.minValue || it->second > filter.maxValue) {
+                matchesAll = false;
+                break;
+            }
+        }
+        
+        GraphRenderer::s_FilteredPoints[i] = matchesAll;
+        if (matchesAll) {
+            totalMatchCount++;
+        }
+    }
+    
+    GraphRenderer::s_HasFilter = totalMatchCount > 0;
+    
+    ImGui::Separator();
+    ImGui::Text("Total Matches: %d / %zu", totalMatchCount, countryNames.size());
+}
+
+void UILayer::renderCategoricalFilterSection(const std::vector<std::string>& countryNames) {
+    addSeparatorText("Categorical Filters");
+    
+    ImGui::Checkbox("Enable categorical filters", &categoricalFilterEnabled);
+    
+    // Define available categorical columns
+    static const std::vector<std::pair<std::string, std::string>> categoricalColumns = {
+        {"Continent", "Continent"},
+        {"Government_Type", "Government Type"}
+    };
+    
+    if (!categoricalFilterEnabled || countryNames.empty()) {
+        if (countryNames.empty()) {
+            ImGui::TextDisabled("Select countries to apply filters.");
+        }
+        // Clear categorical filter highlighting when disabled
+        if (!graphFilterEnabled) {
+            GraphRenderer::s_HasFilter = false;
+            GraphRenderer::s_FilteredPoints.clear();
+        }
+        return;
+    }
+    
+    // Add new filter button
+    if (ImGui::Button("+ Add Filter##Categorical")) {
+        categoricalFilters.push_back(CategoricalFilter());
+    }
+    
+    if (categoricalFilters.empty()) {
+        ImGui::TextDisabled("Click '+ Add Filter' to create a filter.");
+        // Clear filter state if no filters remain and numeric is also empty/disabled
+        if (!graphFilterEnabled || numericFilters.empty()) {
+            GraphRenderer::s_HasFilter = false;
+            GraphRenderer::s_FilteredPoints.clear();
+        }
+        return;
+    }
+    
+    ImGui::Separator();
+    
+    // Display each filter
+    int filterToRemove = -1;
+    int totalMatchCount = 0;
+    
+    for (size_t filterIdx = 0; filterIdx < categoricalFilters.size(); ++filterIdx) {
+        auto& filter = categoricalFilters[filterIdx];
+        
+        ImGui::PushID(static_cast<int>(filterIdx));
+        
+        // Filter header with remove button
+        ImGui::Text("Filter %zu", filterIdx + 1);
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - 60);
+        if (ImGui::SmallButton("Remove")) {
+            filterToRemove = static_cast<int>(filterIdx);
+        }
+        
+        // Column selector
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::BeginCombo("##Category", categoricalColumns[filter.columnIndex].second.c_str())) {
+            for (int i = 0; i < static_cast<int>(categoricalColumns.size()); ++i) {
+                bool isSelected = (filter.columnIndex == i);
+                if (ImGui::Selectable(categoricalColumns[i].second.c_str(), isSelected)) {
+                    filter.columnIndex = i;
+                    filter.values.clear();
+                    filter.selected.clear();
+                }
+                if (isSelected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+        
+        const std::string& columnName = categoricalColumns[filter.columnIndex].first;
+        
+        // Collect unique values for this categorical column
+        if (filter.values.empty()) {
+            std::unordered_set<std::string> uniqueValues;
+            for (const auto& country : countryNames) {
+                if (columnName == "Continent") {
+                    std::string continent = dataManager->getContinent(country);
+                    if (!continent.empty() && continent != "Unknown") {
+                        uniqueValues.insert(continent);
+                    }
+                } else if (columnName == "Government_Type") {
+                    std::string govType = dataManager->getCategoricalValue(country, "Government_Type");
+                    if (!govType.empty()) {
+                        uniqueValues.insert(govType);
+                    }
+                }
+            }
+            filter.values = std::vector<std::string>(uniqueValues.begin(), uniqueValues.end());
+            std::sort(filter.values.begin(), filter.values.end());
+            filter.selected.assign(filter.values.size(), true); // Start with all selected
+        }
+        
+        // Display checkboxes for each value
+        if (ImGui::BeginChild("##Values", ImVec2(0, 100), true)) {
+            for (size_t i = 0; i < filter.values.size(); ++i) {
+                ImGui::PushID(static_cast<int>(i));
+                bool selected = filter.selected[i];
+                if (ImGui::Checkbox(filter.values[i].c_str(), &selected)) {
+                    filter.selected[i] = selected;
+                }
+                ImGui::PopID();
+            }
+        }
+        ImGui::EndChild();
+        
+        if (filterIdx < categoricalFilters.size() - 1) {
+            ImGui::Separator();
+        }
+        
+        ImGui::PopID();
+    }
+    
+    // Remove filter if requested
+    if (filterToRemove >= 0) {
+        categoricalFilters.erase(categoricalFilters.begin() + filterToRemove);
+        // If all categorical filters removed and no numeric filters, clear highlighting
+        if (categoricalFilters.empty() && !graphFilterEnabled) {
+            GraphRenderer::s_HasFilter = false;
+            GraphRenderer::s_FilteredPoints.clear();
+        }
+    }
+    
+    // Apply all categorical filters (AND logic)
+    if (GraphRenderer::s_FilteredPoints.size() != countryNames.size()) {
+        GraphRenderer::s_FilteredPoints.assign(countryNames.size(), false);
+    }
+    
+    for (size_t i = 0; i < countryNames.size(); ++i) {
+        bool matchesAll = true;
+        
+        // Check if country matches ALL filters
+        for (const auto& filter : categoricalFilters) {
+            const std::string& columnName = categoricalColumns[filter.columnIndex].first;
+            bool matchesThisFilter = false;
+            
+            if (columnName == "Continent") {
+                std::string continent = dataManager->getContinent(countryNames[i]);
+                for (size_t j = 0; j < filter.values.size(); ++j) {
+                    if (filter.selected[j] && continent == filter.values[j]) {
+                        matchesThisFilter = true;
+                        break;
+                    }
+                }
+            } else if (columnName == "Government_Type") {
+                std::string govType = dataManager->getCategoricalValue(countryNames[i], "Government_Type");
+                for (size_t j = 0; j < filter.values.size(); ++j) {
+                    if (filter.selected[j] && govType == filter.values[j]) {
+                        matchesThisFilter = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!matchesThisFilter) {
+                matchesAll = false;
+                break;
+            }
+        }
+        
+        // Combine with numeric filter if both are enabled
+        if (graphFilterEnabled && GraphRenderer::s_HasFilter) {
+            GraphRenderer::s_FilteredPoints[i] = GraphRenderer::s_FilteredPoints[i] && matchesAll;
+        } else {
+            GraphRenderer::s_FilteredPoints[i] = matchesAll;
+        }
+        
+        if (GraphRenderer::s_FilteredPoints[i]) {
+            totalMatchCount++;
+        }
+    }
+    
+    GraphRenderer::s_HasFilter = totalMatchCount > 0;
+    
+    ImGui::Separator();
+    ImGui::Text("Total Matches: %d / %zu", totalMatchCount, countryNames.size());
 }
 
 void UILayer::renderChoroplethControls() {
@@ -678,28 +1083,49 @@ void UILayer::renderCustomTreeMapBuilder(const std::string& hoverCountry) {
         selectedAttributes.resize(treemapCompatibleColumns.size(), false);
     }
     
+    // Track which single metric is selected (-1 = none)
+    static int selectedTreemapMetric = -1;
+    
+    // Helper function to format column names into readable display names
+    auto formatColumnName = [](const std::string& columnName) -> std::string {
+        std::string formatted = columnName;
+        // Replace underscores with spaces
+        std::replace(formatted.begin(), formatted.end(), '_', ' ');
+        return formatted;
+    };
+    
     ImGui::Spacing();
     
-    // Metric Selection for TreeMap
+    // Metric Selection for TreeMap using dropdown
     ImGui::Text("Select Metric for TreeMap:");
     
-    if (ImGui::BeginChild("AttributeSelection", ImVec2(0, 200), true)) {
-        for (size_t i = 0; i < treemapCompatibleColumns.size(); ++i) {
-            ImGui::PushID(static_cast<int>(i));
-            bool isSelected = selectedAttributes[i];
-            if (ImGui::Checkbox(treemapCompatibleColumns[i].c_str(), &isSelected)) {
-                selectedAttributes[i] = isSelected;
-            }
-            ImGui::PopID();
-        }
+    std::string previewValue = "Select metric...";
+    if (selectedTreemapMetric >= 0 && selectedTreemapMetric < static_cast<int>(treemapCompatibleColumns.size())) {
+        previewValue = formatColumnName(treemapCompatibleColumns[selectedTreemapMetric]);
     }
-    ImGui::EndChild();
+    
+    ImGui::SetNextItemWidth(-1);
+    if (ImGui::BeginCombo("##TreemapMetric", previewValue.c_str())) {
+        for (int i = 0; i < static_cast<int>(treemapCompatibleColumns.size()); ++i) {
+            bool isSelected = (selectedTreemapMetric == i);
+            std::string displayName = formatColumnName(treemapCompatibleColumns[i]);
+            if (ImGui::Selectable(displayName.c_str(), isSelected)) {
+                selectedTreemapMetric = i;
+                // Update selectedAttributes array to match
+                std::fill(selectedAttributes.begin(), selectedAttributes.end(), false);
+                if (selectedTreemapMetric >= 0) {
+                    selectedAttributes[selectedTreemapMetric] = true;
+                }
+            }
+            if (isSelected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
     
     // Count selected attributes
-    int selectedCount = 0;
-    for (bool selected : selectedAttributes) {
-        if (selected) selectedCount++;
-    }
+    int selectedCount = (selectedTreemapMetric >= 0) ? 1 : 0;
     
     ImGui::Text("Selected: %d metric", selectedCount);
     

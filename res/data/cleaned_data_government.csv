@@ -10,7 +10,7 @@ Armenia,Asia,Yerevan,Democracy,18.0
 Australia,Oceania,Canberra,Democracy,18.0
 Austria,Europe,Vienna,Republic,16.0
 Azerbaijan,Asia,Baku,Republic,18.0
-The Bahamas,North America,Nassau,Democracy,18.0
+Bahamas,North America,Nassau,Democracy,18.0
 Bahrain,Asia,Manama,Monarchy,20.0
 Bangladesh,Asia,Dhaka,Republic,18.0
 Barbados,North America,Bridgetown,Republic,18.0
@@ -20,7 +20,7 @@ Belize,North America,Belmopan,Democracy,18.0
 Benin,Africa,Porto-Novo,Republic,18.0
 Bhutan,Asia,Thimphu,Monarchy,18.0
 Bolivia,South America,La Paz,Republic,18.0
-Bosnia And Herzegovina,Europe,Sarajevo,Republic,18.0
+Bosnia and Herz.,Europe,Sarajevo,Republic,18.0
 Botswana,Africa,Gaborone,Republic,18.0
 Brazil,South America,Brasília,Republic,
 Brunei,Asia,Bandar Seri Begawan,Monarchy,18.0
@@ -37,8 +37,8 @@ Chile,South America,Santiago; note - Valparaiso is the seat of the national legi
 China,Asia,Beijing,Communist,18.0
 Colombia,South America,Bogota,Republic,18.0
 Comoros,Africa,Moroni,Republic,18.0
-Democratic Republic Of The Congo,Africa,Kinshasa,Republic,18.0
-Republic Of The Congo,Africa,Brazzaville,Republic,18.0
+Dem. Rep. Congo,Africa,Kinshasa,Republic,18.0
+Congo,Africa,Brazzaville,Republic,18.0
 Costa Rica,North America,Yamoussoukro,Republic,18.0
 Croatia,Europe,Zagreb,Republic,18.0
 Cuba,North America,Havana,Communist,16.0
@@ -54,7 +54,7 @@ El Salvador,North America,San Salvador,Republic,18.0
 Eq. Guinea,Africa,"Malabo; note - Malabo is on the island of Bioko; in 2017, some governmental offices began to move to a new capital of Ciudad de la",Republic,18.0
 Eritrea,Africa,Asmara,Republic,18.0
 Estonia,Europe,Tallinn,Republic,18.0
-Eswatini,Africa,Mbabane,Monarchy,18.0
+eSwatini,Africa,Mbabane,Monarchy,18.0
 Ethiopia,Africa,Addis Ababa,Republic,18.0
 Fiji,Oceania,Suva,Republic,18.0
 Finland,Europe,Helsinki,Republic,18.0
@@ -170,9 +170,9 @@ Thailand,Asia,Bangkok,Monarchy,18.0
 Timor-Leste,Asia,Dili,Republic,17.0
 Togo,Africa,Lome,Republic,18.0
 Tonga,Oceania,Nuku’alofa,Monarchy,21.0
-Trinidad And Tobago,North America,Port of Spain,Republic,18.0
+Trinidad and Tobago,North America,Port of Spain,Republic,18.0
 Tunisia,Africa,Tunis,Republic,18.0
-Turkey (Turkiye),Asia,Ankara,Republic,18.0
+Turkey,Asia,Ankara,Republic,18.0
 Turkmenistan,Asia,Ashgabat,Republic,18.0
 Tuvalu,Oceania,Funafuti; note - the capital is an atoll of some 29 islets; administrative offices are in Vaiaku Village on Fongafale Islet,Democracy,18.0
 Uganda,Africa,Kampala,Republic,18.0

@@ -56,6 +56,7 @@ void DataHandler::init() {
         "Arable_Land_percent"
     });
     loadFromCSV("res/data/cleaned_data_government.csv", {
+        "Government_Type",
         "Suffrage_Age"
     });
 }
@@ -207,6 +208,19 @@ std::string DataHandler::getContinent(const std::string& countryName) const {
         }
     }
     return "Unknown";
+}
+
+std::string DataHandler::getCategoricalValue(const std::string& countryName, const std::string& column) const {
+    auto it = loadedData.find(countryName);
+    if (it != loadedData.end()) {
+        auto colIt = it->second.find(column);
+        if (colIt != it->second.end()) {
+            if (!colIt->second.isNumeric()) {
+                return std::get<std::string>(colIt->second.value);
+            }
+        }
+    }
+    return "";
 }
 
 DataValue DataHandler::parseValueWithUnit(const std::string& rawValue) {

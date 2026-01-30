@@ -24,6 +24,8 @@ private:
     void addSeparatorText(const std::string text) const;
     void renderLoadingScreen();
     void renderSearchBar();
+    void renderGraphFilterSection(const std::vector<std::string>& countryNames);
+    void renderCategoricalFilterSection(const std::vector<std::string>& countryNames);
 
     // References and Managers
     MapLayer* mapLayer;
@@ -43,6 +45,28 @@ private:
     // Search Bar State
     char searchBuffer[128] = ""; // <--- Buffer for the input text
     std::vector<std::string> cachedCountryNames;
+    
+    // Graph filter state (numeric)
+    struct NumericFilter {
+        int columnIndex = 0;
+        int lastColumnIndex = -1;
+        float minValue = 0.0f;
+        float maxValue = 0.0f;
+        std::string unit;
+        float dataMin = 0.0f;  // Min value in dataset
+        float dataMax = 0.0f;  // Max value in dataset
+    };
+    bool graphFilterEnabled = false;
+    std::vector<NumericFilter> numericFilters;
+    
+    // Categorical filter state
+    struct CategoricalFilter {
+        int columnIndex = 0;
+        std::vector<std::string> values;        // All unique values for this column
+        std::vector<bool> selected;             // Which values are selected
+    };
+    bool categoricalFilterEnabled = false;
+    std::vector<CategoricalFilter> categoricalFilters;
 
     // Treemap state
     int selectedTreemapMetric = 0;

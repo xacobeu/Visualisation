@@ -150,20 +150,17 @@ void MapLayer::updateCountryColor(const std::string& isoCode) {
 
     Vector4 baseColor;
     
-    // Search bar highlight - HIGHEST PRIORITY - bright yellow
-    if (isoCode == searchHighlightIso) {
-        baseColor = {1.0f, 1.0f, 0.0f, 1.0f}; // Bright yellow
-        setCountryColor(isoCode, baseColor.x, baseColor.y, baseColor.z, baseColor.w);
-        return;
-    }
-    
-    // Data (Choropleth)
+    // Data (Choropleth) - Takes priority over search when active
     if (choroplethActive) {
         if (choroplethColors.count(isoCode)) {
             baseColor = choroplethColors[isoCode];
         } else {
             baseColor = NO_DATA_COUNTRY_COLOR;
         }
+    }
+    // Search bar highlight - only when choropleth is not active
+    else if (isoCode == searchHighlightIso) {
+        baseColor = {1.0f, 1.0f, 0.0f, 1.0f}; // Bright yellow
     }
     else if (highlightedCountries.find(isoCode) != highlightedCountries.end()) {
         baseColor = HIGHLIGHT_COLOR;

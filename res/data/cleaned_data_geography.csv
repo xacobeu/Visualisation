@@ -10,7 +10,7 @@ Armenia,Asia,"29,743 sq km","4,090 m",400 m,9.1%,31.2%,59.7%,15.8%
 Australia,Oceania,"7,741,220 sq km","2,228 m",-15 m,17.42%,33.42%,46.65%,4.03%
 Austria,Europe,"83,871 sq km","3,798 m",115 m,47.2%,14.4%,38.4%,16.5%
 Azerbaijan,Asia,"86,600 sq km","4,466 m",-28 m,11.3%,31.1%,57.6%,22.8%
-The Bahamas,North America,"13,880 sq km",64 m,0 m,51.4%,47.2%,1.4%,0.8%
+Bahamas,North America,"13,880 sq km",64 m,0 m,51.4%,47.2%,1.4%,0.8%
 Bahrain,Asia,760 sq km,135 m,0 m,0.7%,88%,11.3%,2.1%
 Bangladesh,Asia,"148,460 sq km","1,060 m",0 m,11.1%,18.8%,70.1%,59%
 Barbados,North America,430 sq km,336 m,0 m,19.4%,48%,32.6%,25.6%
@@ -20,7 +20,7 @@ Belize,North America,"22,966 sq km","1,124 m",0 m,60.6%,32.5%,6.9%,3.3%
 Benin,Africa,"112,622 sq km",,0 m,40%,28.7%,31.3%,22.9%
 Bhutan,Asia,"38,394 sq km","7,570 m",97 m,85.5%,0.9%,13.6%,2.6%
 Bolivia,South America,"1,098,581 sq km","6,542 m",90 m,52.5%,13.2%,34.3%,3.6%
-Bosnia And Herzegovina,Europe,"51,197 sq km","2,386 m",0 m,42.8%,15%,42.2%,19.7%
+Bosnia and Herz.,Europe,"51,197 sq km","2,386 m",0 m,42.8%,15%,42.2%,19.7%
 Botswana,Africa,"581,730 sq km","1,495 m",513 m,19.8%,34.4%,45.8%,0.6%
 Brazil,South America,"8,515,770 sq km","2,994 m",0 m,61.9%,5.2%,32.9%,8.6%
 Brunei,Asia,"5,765 sq km","1,850 m",0 m,71.8%,25.7%,2.5%,0.8%
@@ -37,8 +37,8 @@ Chile,South America,"756,102 sq km","6,893 m",0 m,21.9%,57%,21.1%,1.7%
 China,Asia,"9,596,960 sq km","8,849 m",-154 m,22.3%,23%,54.7%,11.3%
 Colombia,South America,"1,138,910 sq km","5,730 m",0 m,54.4%,8.1%,37.5%,1.4%
 Comoros,Africa,"2,235 sq km","2,360 m",0 m,1.4%,14.2%,84.4%,46.7%
-Democratic Republic Of The Congo,Africa,"2,344,858 sq km","5,110 m",0 m,,,,
-Republic Of The Congo,Africa,"342,000 sq km","1,020 m",0 m,65.6%,3.3%,31.1%,1.6%
+Dem. Rep. Congo,Africa,"2,344,858 sq km","5,110 m",0 m,,,,
+Congo,Africa,"342,000 sq km","1,020 m",0 m,65.6%,3.3%,31.1%,1.6%
 Costa Rica,North America,"322,463 sq km","1,752 m",0 m,32.7%,2.5%,64.8%,9.1%
 Croatia,Europe,"56,594 sq km","1,831 m",0 m,34.4%,41.9%,23.7%,16%
 Cuba,North America,"110,860 sq km","1,974 m",0 m,27.3%,12.4%,60.3%,33.8%
@@ -54,7 +54,7 @@ El Salvador,North America,"21,041 sq km","2,730 m",0 m,13.6%,11.7%,74.7%,33.1%
 Eq. Guinea,Africa,"28,051 sq km","3,008 m",0 m,57.5%,32.4%,10.1%,4.3%
 Eritrea,Africa,"117,600 sq km","3,018 m",-75 m,15.1%,9.8%,75.1%,6.8%
 Estonia,Europe,"45,228 sq km",318 m,0 m,52.1%,25.7%,22.2%,14.9%
-Eswatini,Africa,"17,364 sq km","1,862 m",21 m,31.7%,0%,68.3%,9.8%
+eSwatini,Africa,"17,364 sq km","1,862 m",21 m,31.7%,0%,68.3%,9.8%
 Ethiopia,Africa,"1,104,300 sq km","4,550 m",-125 m,12.2%,51.5%,36.3%,15.2%
 Fiji,Oceania,"18,274 sq km","1,324 m",0 m,55.7%,21%,23.3%,9%
 Finland,Europe,"338,145 sq km","1,328 m",0 m,72.9%,19.6%,7.5%,7.4%
@@ -174,9 +174,9 @@ Thailand,Asia,"513,120 sq km","2,565 m",0 m,37.2%,21.6%,41.2%,30.8%
 Timor-Leste,Asia,"14,874 sq km","2,963 m",0 m,49.1%,25.8%,25.1%,10.1%
 Togo,Africa,"56,785 sq km",986 m,0 m,4.9%,27.7%,67.4%,45.2%
 Tonga,Oceania,747 sq km,"1,046 m",0 m,12.5%,44.4%,43.1%,22.2%
-Trinidad And Tobago,North America,"5,128 sq km",940 m,0 m,44%,45.4%,10.6%,4.9%
+Trinidad and Tobago,North America,"5,128 sq km",940 m,0 m,44%,45.4%,10.6%,4.9%
 Tunisia,Africa,"163,610 sq km","1,544 m",-17 m,6.6%,28.6%,64.8%,18.3%
-Turkey (Turkiye),Asia,"783,562 sq km","5,137 m",0 m,14.9%,35.4%,49.7%,26.7%
+Turkey,Asia,"783,562 sq km","5,137 m",0 m,14.9%,35.4%,49.7%,26.7%
 Turkmenistan,Asia,"488,100 sq km","3,139 m",,8.8%,19.2%,72%,4.1%
 Tuvalu,Oceania,26 sq km,5 m,0 m,33.3%,6.7%,60%,0%
 Uganda,Africa,"241,038 sq km","5,110 m",614 m,14.5%,14.3%,71.2%,34.3%

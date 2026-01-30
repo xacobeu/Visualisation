@@ -36,6 +36,8 @@ public:
     // SPLOM brushing state (public for access from UILayer)
     static bool s_HasSelection;
     static std::vector<bool> s_HighlightedPoints;
+    static bool s_HasFilter;
+    static std::vector<bool> s_FilteredPoints;
 
 private:
     static void RenderBar(const GraphSpec& spec,

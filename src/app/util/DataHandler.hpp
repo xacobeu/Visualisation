@@ -50,6 +50,7 @@ public:
     std::vector<std::string> getAvailableColumns() const;
     std::vector<std::string> getAllCountryNames() const;
     std::string getContinent(const std::string& countryName) const;
+    std::string getCategoricalValue(const std::string& countryName, const std::string& column) const;
 
 private:
     void loadFromCSV(std::string file, std::vector<std::string> columns);

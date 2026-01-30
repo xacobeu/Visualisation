@@ -18,6 +18,7 @@ std::vector<GraphRenderer::SplomFeature> GraphRenderer::g_SplomActiveFeatures;
 
 bool GraphRenderer::s_IsDragging = false;
 bool GraphRenderer::s_HasSelection = false;
+bool GraphRenderer::s_HasFilter = false;
 float GraphRenderer::s_DragStartX = 0.0f;
 float GraphRenderer::s_DragStartY = 0.0f;
 float GraphRenderer::s_DragEndX = 0.0f;
@@ -25,6 +26,7 @@ float GraphRenderer::s_DragEndY = 0.0f;
 int GraphRenderer::s_DragPlotRow = -1;
 int GraphRenderer::s_DragPlotCol = -1;
 std::vector<bool> GraphRenderer::s_HighlightedPoints;
+std::vector<bool> GraphRenderer::s_FilteredPoints;
 
 void GraphRenderer::Render(const GraphSpec& spec,
                            const std::vector<std::string>& itemLabels,
@@ -508,12 +510,15 @@ void GraphRenderer::DrawTreemapNode(void* drawListPtr, const TreemapNode& node,
     bool isBrushed = s_HasSelection && node.originalIndex >= 0 && 
                      node.originalIndex < (int)s_HighlightedPoints.size() && 
                      s_HighlightedPoints[node.originalIndex];
+    bool isFiltered = s_HasFilter && node.originalIndex >= 0 &&
+                      node.originalIndex < (int)s_FilteredPoints.size() &&
+                      s_FilteredPoints[node.originalIndex];
     
     if (isHighlighted) {
         col = IM_COL32(255, 200, 50, 255); // Bright Yellow/Orange for hover
-    } else if (isBrushed) {
+    } else if (isBrushed || isFiltered) {
         col = IM_COL32(255, 153, 26, 255); // Bright orange for brushed
-    } else if (s_HasSelection) {
+    } else if (s_HasSelection || s_HasFilter) {
         // Dimmed when there's a selection but this node isn't selected
         ImU32 baseCol = getContinentColor(node.continent);
         ImVec4 colVec = ImGui::ColorConvertU32ToFloat4(baseCol);
@@ -526,7 +531,7 @@ void GraphRenderer::DrawTreemapNode(void* drawListPtr, const TreemapNode& node,
     
     if (isHighlighted) {
          drawList->AddRect(pMin, pMax, IM_COL32(255, 255, 255, 255), 0.0f, 0, 3.0f);
-    } else if (isBrushed) {
+    } else if (isBrushed || isFiltered) {
          drawList->AddRect(pMin, pMax, IM_COL32(255, 200, 100, 255), 0.0f, 0, 2.0f);
     }
     // Hover
@@ -571,6 +576,7 @@ void GraphRenderer::RenderBar(const GraphSpec& spec,
 {
     std::vector<float> x(labels.size());
     for (size_t i = 0; i < x.size(); ++i) x[i] = (float)i;
+    const bool hasFilter = s_HasFilter && s_FilteredPoints.size() == labels.size();
 
     for (size_t i = 0; i < data.size(); ++i) {
         const auto& s = data[i];
@@ -596,6 +602,18 @@ void GraphRenderer::RenderBar(const GraphSpec& spec,
                 }
             }
         }
+
+        if (hasFilter) {
+            for (size_t k = 0; k < labels.size(); ++k) {
+                if (s_FilteredPoints[k]) {
+                    double h_x = xOffset[k];
+                    double h_y = s.values[k];
+                    ImPlot::PushStyleColor(ImPlotCol_Fill, ImVec4(0.3f, 0.9f, 0.4f, 0.9f));
+                    ImPlot::PlotBars("##FilteredHighlight", &h_x, &h_y, 1, barWidth);
+                    ImPlot::PopStyleColor();
+                }
+            }
+        }
     }
     DrawRotatedLabels(labels);
 }
@@ -614,15 +632,20 @@ void GraphRenderer::RenderScatter(const GraphSpec&,
 
     for (size_t i = 0; i < labels.size(); ++i) {
         bool isHigh = (labels[i] == highlight);
+        bool isFiltered = s_HasFilter && i < s_FilteredPoints.size() && s_FilteredPoints[i];
         if (isHigh) {
             ImPlot::PushStyleColor(ImPlotCol_MarkerFill, ImVec4(1, 0.8f, 0, 1)); 
             ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, ImVec4(1, 0.8f, 0, 1)); 
             ImPlot::PushStyleVar(ImPlotStyleVar_MarkerSize, 8.0f);
+        } else if (isFiltered) {
+            ImPlot::PushStyleColor(ImPlotCol_MarkerFill, ImVec4(0.3f, 0.9f, 0.4f, 1.0f));
+            ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, ImVec4(0.5f, 1.0f, 0.6f, 1.0f));
+            ImPlot::PushStyleVar(ImPlotStyleVar_MarkerSize, 7.0f);
         }
 
         ImPlot::PlotScatter(labels[i].c_str(), &data[0].values[i], &data[1].values[i], 1);
         
-        if (isHigh) {
+        if (isHigh || isFiltered) {
             ImPlot::PopStyleVar();
             ImPlot::PopStyleColor(2);
         }
@@ -711,7 +734,9 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
     }
     
     const int n = static_cast<int>(activeData.size());
-    if (n < 2) {
+    
+    // Main SPLOM display area
+    if (n < 1) {
         ImGui::BeginChild("SplomPlaceholder", ImVec2(-1, 400), true, ImGuiWindowFlags_NoScrollbar);
         ImVec2 avail = ImGui::GetContentRegionAvail();
         ImVec2 textSize = ImGui::CalcTextSize("Drop features here to display SPLOM");
@@ -733,11 +758,9 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
         }
         
         ImGui::EndChild();
-        ImGui::EndGroup();
-        return;
-    }
-
-    std::vector<float> seriesMin(n), seriesMax(n);
+    } else {
+        // Render SPLOM with active features
+        std::vector<float> seriesMin(n), seriesMax(n);
     for (int i = 0; i < n; ++i) {
         if (activeData[i].values.empty()) continue;
         auto [minIt, maxIt] = std::minmax_element(activeData[i].values.begin(), activeData[i].values.end());
@@ -872,7 +895,7 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
                         }
                         
                         // Draw histogram bars
-                        ImPlot::PushStyleColor(ImPlotCol_Fill, ImVec4(0.3f, 0.7f, 1.0f, 0.6f));
+                        ImPlot::PushStyleColor(ImPlotCol_Fill, ImVec4(0.2f, 0.5f, 0.2f, 0.8f));
                         for (int b = 0; b < numBins; ++b) {
                             double barWidth = bins[b + 1] - bins[b];
                             double barCenter = (bins[b] + bins[b + 1]) / 2.0;
@@ -902,29 +925,52 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
 
                     if (s_HighlightedPoints.size() != labels.size()) s_HighlightedPoints.resize(labels.size(), false);
 
+                    // First pass: draw all non-hover-highlighted points
                     for (size_t i = 0; i < labels.size(); ++i) {
                         bool isHoverHighlight = (!highlight.empty() && labels[i] == highlight);
+                        if (isHoverHighlight) continue; // Skip hover highlight in first pass
+                        
                         bool isDragSelected = s_HasSelection && s_HighlightedPoints[i];
+                        bool isFilterSelected = s_HasFilter && i < s_FilteredPoints.size() && s_FilteredPoints[i];
 
-                        if (isHoverHighlight) {
-                            ImPlot::PushStyleColor(ImPlotCol_MarkerFill, ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
-                            ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-                            ImPlot::PushStyleVar(ImPlotStyleVar_MarkerSize, 6.0f);
-                        } else if (isDragSelected) {
+                        if (isDragSelected) {
                             ImPlot::PushStyleColor(ImPlotCol_MarkerFill, ImVec4(1.0f, 0.6f, 0.1f, 1.0f));
                             ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, ImVec4(1.0f, 0.8f, 0.3f, 1.0f));
-                        } else if (s_HasSelection) {
-                            ImPlot::PushStyleColor(ImPlotCol_MarkerFill, ImVec4(0.3f, 0.5f, 0.7f, 0.2f));
-                            ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, ImVec4(0.3f, 0.5f, 0.7f, 0.2f));
+                            ImPlot::PushStyleVar(ImPlotStyleVar_MarkerSize, 7.0f);
+                        } else if (isFilterSelected) {
+                            ImPlot::PushStyleColor(ImPlotCol_MarkerFill, ImVec4(0.3f, 0.9f, 0.4f, 1.0f));
+                            ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, ImVec4(0.5f, 1.0f, 0.6f, 1.0f));
+                            ImPlot::PushStyleVar(ImPlotStyleVar_MarkerSize, 7.0f);
+                        } else if (s_HasSelection || s_HasFilter) {
+                            ImPlot::PushStyleColor(ImPlotCol_MarkerFill, ImVec4(0.2f, 0.5f, 0.2f, 0.3f));
+                            ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, ImVec4(0.15f, 0.4f, 0.15f, 0.3f));
                         } else {
-                            ImPlot::PushStyleColor(ImPlotCol_MarkerFill, ImVec4(0.3f, 0.7f, 1.0f, 0.5f));
-                            ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, ImVec4(0.3f, 0.7f, 1.0f, 0.5f));
+                            ImPlot::PushStyleColor(ImPlotCol_MarkerFill, ImVec4(0.2f, 0.5f, 0.2f, 0.8f));
+                            ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, ImVec4(0.15f, 0.4f, 0.15f, 1.0f));
                         }
                         
                         ImPlot::PlotScatter(("##" + labels[i]).c_str(), &activeData[col].values[i], &activeData[row].values[i], 1);
                         
                         ImPlot::PopStyleColor(2);
-                        if (isHoverHighlight) ImPlot::PopStyleVar();
+                        if (isDragSelected || isFilterSelected) ImPlot::PopStyleVar();
+                    }
+                    
+                    // Second pass: draw hover-highlighted point on top
+                    if (!highlight.empty()) {
+                        for (size_t i = 0; i < labels.size(); ++i) {
+                            bool isHoverHighlight = (labels[i] == highlight);
+                            if (!isHoverHighlight) continue;
+                            
+                            ImPlot::PushStyleColor(ImPlotCol_MarkerFill, ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
+                            ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+                            ImPlot::PushStyleVar(ImPlotStyleVar_MarkerSize, 8.0f);
+                            
+                            ImPlot::PlotScatter(("##" + labels[i]).c_str(), &activeData[col].values[i], &activeData[row].values[i], 1);
+                            
+                            ImPlot::PopStyleColor(2);
+                            ImPlot::PopStyleVar();
+                            break; // Only one hover highlight
+                        }
                     }
 
                     if (ImPlot::IsPlotHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
@@ -1015,8 +1061,9 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
         }
         ImGui::EndTable();
     }
+    } // End of else block for n >= 1
     
-    // Feature panel at the bottom - wrap layout
+    // Feature panel at the bottom - wrap layout (always shown)
     ImGui::BeginChild("SplomFeaturePanel", ImVec2(0, 100), true, 0);
     
     // Show placeholder text when empty, otherwise show features
@@ -1216,17 +1263,18 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
             if (labels[c] == highlight) continue;
 
             bool isBrushed = s_HasSelection && c < s_HighlightedPoints.size() && s_HighlightedPoints[c];
+            bool isFiltered = s_HasFilter && c < s_FilteredPoints.size() && s_FilteredPoints[c];
             
             ImVec4 colVec;
             ImU32 col;
             ImU32 fillCol;
             
-            if (isBrushed) {
+            if (isBrushed || isFiltered) {
                 // Brushed polygons - bright orange
                 colVec = ImVec4(1.0f, 0.6f, 0.1f, 1.0f);
                 col = ImColor(colVec);
                 fillCol = IM_COL32(255, 153, 26, 80);
-            } else if (s_HasSelection) {
+            } else if (s_HasSelection || s_HasFilter) {
                 // Non-brushed polygons when there's a selection - dimmed
                 colVec = ImColor::HSV((float)c / countryCount, 0.6f, 0.9f);
                 col = ImColor(colVec.x, colVec.y, colVec.z, 0.2f);
