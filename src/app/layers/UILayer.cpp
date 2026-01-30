@@ -6,7 +6,7 @@
 #include <imgui.h>
 
 #include <algorithm>
-#include <cstring> // For memset, strncpy
+#include <cstring>
 #include <iostream>
 #include <limits>
 #include <unordered_set>
@@ -158,7 +158,7 @@ void UILayer::onUpdate(float) {
     std::string hoverCountry = "";
     std::string searchCountry = "";
     
-    // 1. Check Search Bar (Exact or Partial Match Logic)
+    // Check Search Bar 
     if (strlen(searchBuffer) > 0) {
          std::string s(searchBuffer);
          // Check if the buffer matches a known country exactly
@@ -183,7 +183,7 @@ void UILayer::onUpdate(float) {
          }
     }
 
-    // 2. Check Mouse Hover (Overrides Search for visual feedback)
+    // Check Mouse Hover 
     if (!ImGui::GetIO().WantCaptureMouse) {
         std::string hovered = mapLayer->getCountryAtCursor();
         if (!hovered.empty()) {
@@ -220,7 +220,7 @@ void UILayer::onUpdate(float) {
     }
     std::sort(countryNames.begin(), countryNames.end());
     
-    // Add brushed countries (from SPLOM/graph selection)
+    // Add brushed countries 
     if (GraphRenderer::s_HasSelection && !GraphRenderer::s_HighlightedPoints.empty()) {
         for (size_t i = 0; i < countryNames.size() && i < GraphRenderer::s_HighlightedPoints.size(); ++i) {
             if (GraphRenderer::s_HighlightedPoints[i]) {
@@ -232,7 +232,7 @@ void UILayer::onUpdate(float) {
         }
     }
     
-    // Add filtered countries (from filter controls)
+    // Add filtered countries 
     if (GraphRenderer::s_HasFilter && !GraphRenderer::s_FilteredPoints.empty()) {
         for (size_t i = 0; i < countryNames.size() && i < GraphRenderer::s_FilteredPoints.size(); ++i) {
             if (GraphRenderer::s_FilteredPoints[i]) {
@@ -273,7 +273,7 @@ void UILayer::onUpdate(float) {
         if (selectedIds.empty()) {
             ImGui::TextDisabled("Click on the map to select countries.");
         } else {
-            // SPLOM - keep original spec, add other columns to data only
+        
             std::vector<std::string> splomAllColumns = splomSpec.series.columns;
             for (const auto& col : availableColumns) {
                 if (std::find(splomSpec.series.columns.begin(), splomSpec.series.columns.end(), col) == splomSpec.series.columns.end()) {
@@ -283,7 +283,6 @@ void UILayer::onUpdate(float) {
             auto splomData = dataManager->collectSeries(countryNames, splomAllColumns);
             GraphRenderer::Render(splomSpec, countryNames, splomData, hoverCountry);
 
-            // Radar - keep original spec, add other columns to data only
             std::vector<std::string> radarAllColumns = radarSpec.series.columns;
             for (const auto& col : availableColumns) {
                 if (std::find(radarSpec.series.columns.begin(), radarSpec.series.columns.end(), col) == radarSpec.series.columns.end()) {
@@ -382,9 +381,9 @@ void UILayer::renderSearchBar() {
     addSeparatorText("Find in Selection");
     
     // Input box
-    ImGui::SetNextItemWidth(-1); // Use full width
+    ImGui::SetNextItemWidth(-1); 
     if (ImGui::InputTextWithHint("##Search", "Filter active graphs...", searchBuffer, IM_ARRAYSIZE(searchBuffer))) {
-        // Just keeping buffer updated
+      
     }
     
     // Dropdown suggestions - Only search WITHIN selected countries
@@ -397,7 +396,7 @@ void UILayer::renderSearchBar() {
             std::string query = searchBuffer;
             std::transform(query.begin(), query.end(), query.begin(), ::tolower);
             
-            // Build temporary list of NAMES from selected IDs
+            // Build temporary list of names from selected IDs
             std::vector<std::string> activeNames;
             activeNames.reserve(selectedIds.size());
             for(const auto& id : selectedIds) {
@@ -497,8 +496,6 @@ void UILayer::renderGraphFilterSection(const std::vector<std::string>& countryNa
         auto& filter = numericFilters[filterIdx];
         
         ImGui::PushID(static_cast<int>(filterIdx));
-        
-        // Filter header with remove button
         ImGui::Text("Filter %zu", filterIdx + 1);
         ImGui::SameLine();
         ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - 60);
@@ -586,7 +583,7 @@ void UILayer::renderGraphFilterSection(const std::vector<std::string>& countryNa
         }
     }
     
-    // Apply all numeric filters (AND logic)
+    // Apply all numeric filters 
     if (GraphRenderer::s_FilteredPoints.size() != countryNames.size()) {
         GraphRenderer::s_FilteredPoints.assign(countryNames.size(), false);
     }
@@ -753,7 +750,7 @@ void UILayer::renderCategoricalFilterSection(const std::vector<std::string>& cou
     for (size_t i = 0; i < countryNames.size(); ++i) {
         bool matchesAll = true;
         
-        // Check if country matches ALL filters
+        // Check if country matches all filters
         for (const auto& filter : categoricalFilters) {
             const std::string& columnName = categoricalColumns[filter.columnIndex].first;
             bool matchesThisFilter = false;
@@ -803,7 +800,7 @@ void UILayer::renderCategoricalFilterSection(const std::vector<std::string>& cou
 void UILayer::renderChoroplethControls() {
     ImGui::TextDisabled("Color map by:");
     
-    // Build labels for availableColumns (assume order matches radarSpec.series.columns/labels)
+    // Build labels for availableColumns 
     std::vector<std::string> choroplethLabels;
     for (const auto& col : availableColumns) {
         auto it = std::find(radarSpec.series.columns.begin(), radarSpec.series.columns.end(), col);
@@ -884,7 +881,6 @@ void UILayer::renderChoroplethControls() {
         }
         ImGui::Dummy(ImVec2(width, height));
 
-        // Draw Labels (Perfectly Aligned)
         
         // Format strings first to calculate exact sizes
         char minBuf[32]; 
@@ -895,10 +891,10 @@ void UILayer::renderChoroplethControls() {
 
         float startX = ImGui::GetCursorPosX();
 
-        // --- Left Label (Min) ---
+        // --- Left Label  ---
         ImGui::Text("%s", minBuf);
 
-        // --- Center Label ("0") ---
+        // --- Center Label  ---
         if (currentIsDiverging) {
             const char* midStr = "0";
             float midTextWidth = ImGui::CalcTextSize(midStr).x;
@@ -907,7 +903,7 @@ void UILayer::renderChoroplethControls() {
             ImGui::Text("%s", midStr);
         }
 
-        // --- Right Label (Max) ---
+        // --- Right Label ---
         float maxTextWidth = ImGui::CalcTextSize(maxBuf).x;
         ImGui::SameLine();
         ImGui::SetCursorPosX(startX + width - maxTextWidth);
@@ -1015,7 +1011,7 @@ void UILayer::renderCustomTreeMapBuilder(const std::string& hoverCountry) {
         countryNames.push_back(mapLayer->getCountryName(id));
     }
     
-    // Filter columns suitable for treemaps (absolute values, not rates/percentages/ratios)
+    // Filter columns suitable for treemaps 
     static std::vector<std::string> treemapCompatibleColumns;
     if (treemapCompatibleColumns.empty() && !availableColumns.empty()) {
         static const std::unordered_set<std::string> excludedColumns = {
@@ -1026,7 +1022,7 @@ void UILayer::renderCustomTreeMapBuilder(const std::string& hoverCountry) {
             "Population_Below_Poverty_Line_percent", "electricity_access_percent", "Arable_Land_percent",
             // Exclude ratios and per-capita values
             "Exchange_Rate_per_USD", "Real_GDP_per_Capita_USD", "Median_Age",
-            // Exclude elevations (can be negative, not meaningful for treemap size)
+            // Exclude elevations
             "Highest_Elevation", "Lowest_Elevation"
         };
         
@@ -1078,7 +1074,7 @@ void UILayer::renderCustomTreeMapBuilder(const std::string& hoverCountry) {
         return;
     }
     
-    // Initialize selectedAttributes if needed (based on treemap-compatible columns)
+    // Initialize selectedAttributes if needed 
     if (selectedAttributes.size() != treemapCompatibleColumns.size()) {
         selectedAttributes.resize(treemapCompatibleColumns.size(), false);
     }

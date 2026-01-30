@@ -54,7 +54,6 @@ for csv_file in csv_files:
     try:
         df = pd.read_csv(csv_file)
         
-        # Check for 'Country' column (case-insensitive)
         country_col = None
         for col in df.columns:
             if col.lower() == 'country':
@@ -65,7 +64,6 @@ for csv_file in csv_files:
             # Apply mapping
             df[country_col] = df[country_col].apply(lambda x: json_alias_to_canonical.get(x, x))
             
-            # Save back to the SAME file (Overwrite)
             df.to_csv(csv_file, index=False)
             print(f"  -> Overwrote {csv_file}")
         else:

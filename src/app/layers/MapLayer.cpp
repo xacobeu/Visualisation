@@ -150,17 +150,20 @@ void MapLayer::updateCountryColor(const std::string& isoCode) {
 
     Vector4 baseColor;
     
-    // Data (Choropleth) - Takes priority over search when active
+    // Search bar highlight - highest priority
+    if (isoCode == searchHighlightIso) {
+        baseColor = {1.0f, 1.0f, 0.0f, 1.0f}; // Bright yellow
+        setCountryColor(isoCode, baseColor.x, baseColor.y, baseColor.z, baseColor.w);
+        return;
+    }
+    
+    // Choropleth
     if (choroplethActive) {
         if (choroplethColors.count(isoCode)) {
             baseColor = choroplethColors[isoCode];
         } else {
             baseColor = NO_DATA_COUNTRY_COLOR;
         }
-    }
-    // Search bar highlight - only when choropleth is not active
-    else if (isoCode == searchHighlightIso) {
-        baseColor = {1.0f, 1.0f, 0.0f, 1.0f}; // Bright yellow
     }
     else if (highlightedCountries.find(isoCode) != highlightedCountries.end()) {
         baseColor = HIGHLIGHT_COLOR;
@@ -172,7 +175,7 @@ void MapLayer::updateCountryColor(const std::string& isoCode) {
         baseColor = DEFAULT_COUNTRY_COLOR;
     }
 
-    // Hover effect -> LIGHTEN
+    // Hover effect -> lighten color
     if (isoCode == hoveredIso) {
         float lightenFactor = 0.4f;
         Vector4 hoverColor = {
@@ -192,7 +195,7 @@ void MapLayer::updateCountryColor(const std::string& isoCode) {
 void MapLayer::applyChoropleth(const std::unordered_map<std::string, float>& countryValues, const std::string& unit, bool isDiverging) {
     if (countryValues.empty()) return;
 
-    // 1. Calculate Min/Max
+    // Calculate Min/Max
     float minVal = std::numeric_limits<float>::max();
     float maxVal = std::numeric_limits<float>::lowest();
 
@@ -203,7 +206,7 @@ void MapLayer::applyChoropleth(const std::unordered_map<std::string, float>& cou
         }
     }
 
-    // Prepare Sequential Range (used if !isDiverging)
+    // Prepare Sequential Range
     float rangeSeq = maxVal - minVal;
     if (rangeSeq < 0.0001f) rangeSeq = 1.0f;
 
@@ -212,10 +215,10 @@ void MapLayer::applyChoropleth(const std::unordered_map<std::string, float>& cou
     choroplethValues = countryValues;
     choroplethUnit = unit;
 
-    // 2. Select Colormap
+    // Select Colormap
     ImPlotColormap mapId = isDiverging ? ImPlotColormap_RdBu : ImPlotColormap_Viridis;
 
-    // 3. Apply Colors
+    // Apply Colors
     for (const auto& [id, meta] : countries) {
         Vector4 col;
         auto it = countryValues.find(id);

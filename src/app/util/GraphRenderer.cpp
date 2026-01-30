@@ -151,7 +151,7 @@ void GraphRenderer::RenderTreeMap(const GraphSpec& spec,
 
     ImGui::TextUnformatted(spec.title.c_str());
 
-    // 1. Setup Canvas
+    // Setup Canvas
     ImVec2 avail = ImGui::GetContentRegionAvail();
     avail.y = std::max(avail.y, 400.0f); // Minimum height
     ImVec2 p0 = ImGui::GetCursorScreenPos();
@@ -160,7 +160,7 @@ void GraphRenderer::RenderTreeMap(const GraphSpec& spec,
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     drawList->AddRectFilled(p0, p1, IM_COL32(30, 30, 30, 255));
 
-    // 2. Prepare Data - Group by continent if continent map is provided
+    //Prepare Data - Group by continent if continent map is provided
     std::unordered_map<std::string, std::vector<TreemapNode>> continentGroups;
     std::unordered_map<std::string, float> continentTotals;
     float totalValue = 0.0f;
@@ -190,7 +190,7 @@ void GraphRenderer::RenderTreeMap(const GraphSpec& spec,
 
     // If no continents provided or only one continent, render flat
     if (continentMap.empty() || continentGroups.size() <= 1) {
-        // Flat rendering (original behavior)
+        // Flat rendering 
         std::vector<TreemapNode> nodes;
         for (auto& [continent, countries] : continentGroups) {
             nodes.insert(nodes.end(), countries.begin(), countries.end());
@@ -373,7 +373,7 @@ void GraphRenderer::RenderTreeMap(const GraphSpec& spec,
             if (continent == "South America") return IM_COL32(121, 147, 229, 255); // Azure
             if (continent == "Oceania")       return IM_COL32(209, 123, 217, 255); // Violet
             
-            // Default: Neutral Grey (Balanced Luminance)
+            // Default: Neutral Grey 
             return IM_COL32(160, 160, 160, 255); 
         };
         
@@ -798,7 +798,7 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
         for (int row = 0; row < numRows; ++row) {
             ImGui::TableNextRow();
 
-            // X-Axis Labels (Bottom Row)
+            // X-Axis Labels 
             if (row == n) {
                 ImGui::TableSetColumnIndex(0);
                 for (int col = 0; col < n; ++col) {
@@ -925,7 +925,7 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
 
                     if (s_HighlightedPoints.size() != labels.size()) s_HighlightedPoints.resize(labels.size(), false);
 
-                    // First pass: draw all non-hover-highlighted points
+                    // draw all non-hover-highlighted points
                     for (size_t i = 0; i < labels.size(); ++i) {
                         bool isHoverHighlight = (!highlight.empty() && labels[i] == highlight);
                         if (isHoverHighlight) continue; // Skip hover highlight in first pass
@@ -952,7 +952,7 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
                         ImPlot::PopStyleColor(2);
                     }
                     
-                    // Second pass: draw hover-highlighted point on top
+                    // draw hover-highlighted point on top
                     if (!highlight.empty()) {
                         for (size_t i = 0; i < labels.size(); ++i) {
                             bool isHoverHighlight = (labels[i] == highlight);
@@ -1058,7 +1058,7 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
     }
     } // End of else block for n >= 1
     
-    // Feature panel at the bottom - wrap layout (always shown)
+    // Feature panel at the bottom - wrap layout 
     ImGui::BeginChild("SplomFeaturePanel", ImVec2(0, 100), true, 0);
     
     // Show placeholder text when empty, otherwise show features
@@ -1131,7 +1131,7 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
                                 const std::vector<PlotSeries>& data,
                                 const std::string& highlight)
 {
-    // 1. Prepare Features
+    // Prepare Features
     if ((g_ActiveFeatures.empty() && g_AvailableFeatures.empty()) || 
         (g_ActiveFeatures.size() + g_AvailableFeatures.size()) != data.size()) {
         g_ActiveFeatures.clear();
@@ -1155,7 +1155,7 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
 
     ImGui::BeginGroup();
 
-    // 2. Layout Calculation
+    // Layout Calculation
     ImVec2 availRegion = ImGui::GetContentRegionAvail();
     float footerHeight = 60.0f + ImGui::GetStyle().ItemSpacing.y;
     // Ensure plot has minimum height to avoid collapse, but fill available space otherwise
@@ -1213,9 +1213,6 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
             
             draw->AddText(labelPos, IM_COL32_WHITE, labelText);
             
-            // [CRITICAL FIX START] ---------------------------------------------
-            // We must save the cursor position before moving it to place the button.
-            // If we don't, the next UI element (the Footer) will draw starting from here (middle of the plot).
             ImVec2 backupCursorPos = ImGui::GetCursorScreenPos();
             
             ImGui::SetCursorScreenPos(labelPos);
@@ -1229,7 +1226,6 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
 
             // Restore the cursor so layout flow continues correctly from the bottom of the plot later
             ImGui::SetCursorScreenPos(backupCursorPos);
-            // [CRITICAL FIX END] -----------------------------------------------
         }
         
         // Grid rings

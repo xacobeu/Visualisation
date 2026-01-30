@@ -1,7 +1,6 @@
 import pandas as pd
 import os
 
-# 1. The Mapping Dictionary
 continent_map = {
     'Afghanistan': 'Asia',
     'Albania': 'Europe',
@@ -145,7 +144,7 @@ continent_map = {
     'Portugal': 'Europe',
     'Qatar': 'Asia',
     'Romania': 'Europe',
-    'Russia': 'Europe', # Transcontinental, usually grouped with Europe politically or Asia geographically. Adjusted to Europe here.
+    'Russia': 'Europe',
     'Rwanda': 'Africa',
     'Saint Kitts And Nevis': 'North America',
     'Saint Lucia': 'North America',
@@ -198,7 +197,6 @@ continent_map = {
     'Zimbabwe': 'Africa'
 }
 
-# 2. List of files to process
 files_to_process = [
     'cleaned_data_communications.csv',
     'cleaned_data_demographics.csv',
@@ -213,27 +211,22 @@ print("Starting processing...")
 for file_name in files_to_process:
     if os.path.exists(f"{file_name}"):
         try:
-            # Read the CSV
             df = pd.read_csv(file_name)
             
-            # Check if 'Country' column exists to avoid errors
             if 'Country' in df.columns:
-                # Add Continent column
                 df.insert(1, 'Continent', df['Country'].map(continent_map))
                 
-                # Fill missing/unmatched with 'Unknown' just in case
                 df['Continent'] = df['Continent'].fillna('Unknown')
                 
-                # Save to a new file prefixed with 'sorted_'
                 output_name = f"{file_name}"
                 df.to_csv(output_name, index=False)
-                print(f"✅ Processed: {file_name} -> {output_name}")
+                print(f"Processed: {file_name} -> {output_name}")
             else:
-                print(f"⚠️  Skipped {file_name}: No 'Country' column found.")
+                print(f"Skipped {file_name}: No 'Country' column found.")
                 
         except Exception as e:
-            print(f"❌ Error processing {file_name}: {e}")
+            print(f"Error processing {file_name}: {e}")
     else:
-        print(f"❌ File not found: {file_name}")
+        print(f"File not found: {file_name}")
 
 print("Done!")

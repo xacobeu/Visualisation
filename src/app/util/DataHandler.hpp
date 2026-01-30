@@ -36,10 +36,10 @@ public:
         const std::vector<std::string>& columns
     );
     
-    // Get data for all countries for a single column (for choropleth)
+    // Get data for all countries for a single column
     std::unordered_map<std::string, float> getColumnForAllCountries(const std::string& column);
     
-    // Get data with units for all countries for a single column (for choropleth with tooltip units)
+    // Get data with units for all countries for a single column 
     struct ColumnData {
         std::unordered_map<std::string, float> values;
         std::string unit;

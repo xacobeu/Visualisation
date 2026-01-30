@@ -33,7 +33,7 @@ public:
                        const std::string& highlight,
                        const std::unordered_map<std::string, std::string>& continentMap);
 
-    // SPLOM brushing state (public for access from UILayer)
+    // SPLOM brushing state 
     static bool s_HasSelection;
     static std::vector<bool> s_HighlightedPoints;
     static bool s_HasFilter;
@@ -59,7 +59,7 @@ private:
     struct TreemapNode {
         std::string label;
         std::string continent;
-        float value;          // The raw value (e.g. GDP)
+        float value;          // The raw value 
         float area;           // The scaled pixel area
         float x, y, w, h;     // Final coordinates
         int originalIndex;

@@ -43,7 +43,7 @@ private:
     int currentMapTab = 0;  // 0 = Selection, 1 = Choropleth
 
     // Search Bar State
-    char searchBuffer[128] = ""; // <--- Buffer for the input text
+    char searchBuffer[128] = ""; 
     std::vector<std::string> cachedCountryNames;
     
     // Graph filter state (numeric)
@@ -76,7 +76,7 @@ private:
     std::vector<GraphSpec> savedCustomGraphs;
     void renderCustomTreeMapBuilder(const std::string& hoverCountry);
 
-    // Graph Specifications (Configuration)
+    // Graph Specifications 
     GraphSpec radarSpec;
     GraphSpec splomSpec;
     GraphSpec barSpec;
