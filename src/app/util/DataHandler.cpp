@@ -18,6 +18,12 @@ void DataHandler::init() {
         "Death_Rate",
         "Net_Migration_Rate",
         "Median_Age",
+        "Sex_Ratio",
+        "Infant_Mortality_Rate",
+        "Total_Fertility_Rate",
+        "Total_Literacy_Rate",
+        "Male_Literacy_Rate",
+        "Female_Literacy_Rate"
     });
     loadFromCSV(ECONOMY_CSV_PATH, {
         "Real_GDP_PPP_billion_USD",

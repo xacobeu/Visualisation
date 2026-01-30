@@ -24,7 +24,7 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
         "broadband_fixed_subscriptions_total", "Total_Population", "Birth_Rate", 
         "Death_Rate", "Median_Age", "Sex_Ratio", "Infant_Mortality_Rate", 
         "Total_Fertility_Rate", "Total_Literacy_Rate", "Male_Literacy_Rate", "Female_Literacy_Rate", 
-        "Youth_Unemployment_Rate", "Real_GDP_PPP_billion_USD", "GDP_Official_Exchange_Rate_billion_USD", 
+        "Real_GDP_PPP_billion_USD", "GDP_Official_Exchange_Rate_billion_USD", 
         "Real_GDP_Growth_Rate_percent", "Real_GDP_per_Capita_USD", "Unemployment_Rate_percent", 
         "Youth_Unemployment_Rate_percent", "Budget_billion_USD", "Budget_Surplus_billion_USD", 
         "Budget_Deficit_percent_of_GDP", "Public_Debt_percent_of_GDP", "Exports_billion_USD", 
@@ -40,7 +40,7 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
         "Fixed Broadband Subscriptions", "Total Population", "Birth Rate", 
         "Death Rate", "Median Age", "Sex Ratio", "Infant Mortality Rate", 
         "Total Fertility Rate", "Total Literacy Rate", "Male Literacy Rate", "Female Literacy Rate", 
-        "Youth Unemployment Rate", "Real GDP (PPP) $B", "GDP (Official Exchange) $B", 
+        "Real GDP (PPP) $B", "GDP (Official Exchange) $B", 
         "Real GDP Growth Rate %", "Real GDP per Capita $", "Unemployment Rate %", 
         "Youth Unemployment Rate %", "Budget $B", "Budget Surplus $B", 
         "Budget Deficit % of GDP", "Public Debt % of GDP", "Exports $B", 
@@ -62,7 +62,7 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
         "broadband_fixed_subscriptions_total", "Total_Population", "Population_Growth_Rate", "Birth_Rate", 
         "Death_Rate", "Net_Migration_Rate", "Median_Age", "Sex_Ratio", "Infant_Mortality_Rate", 
         "Total_Fertility_Rate", "Total_Literacy_Rate", "Male_Literacy_Rate", "Female_Literacy_Rate", 
-        "Youth_Unemployment_Rate", "Real_GDP_PPP_billion_USD", "GDP_Official_Exchange_Rate_billion_USD", 
+        "Real_GDP_PPP_billion_USD", "GDP_Official_Exchange_Rate_billion_USD", 
         "Real_GDP_Growth_Rate_percent", "Real_GDP_per_Capita_USD", "Unemployment_Rate_percent", 
         "Youth_Unemployment_Rate_percent", "Budget_billion_USD", "Budget_Surplus_billion_USD", 
         "Budget_Deficit_percent_of_GDP", "Public_Debt_percent_of_GDP", "Exports_billion_USD", 
@@ -78,7 +78,7 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
         "Fixed Broadband Subscriptions", "Total Population", "Population Growth Rate", "Birth Rate", 
         "Death Rate", "Net Migration Rate", "Median Age", "Sex Ratio", "Infant Mortality Rate", 
         "Total Fertility Rate", "Total Literacy Rate", "Male Literacy Rate", "Female Literacy Rate", 
-        "Youth Unemployment Rate", "Real GDP (PPP) $B", "GDP (Official Exchange) $B", 
+        "Real GDP (PPP) $B", "GDP (Official Exchange) $B", 
         "Real GDP Growth Rate %", "Real GDP per Capita $", "Unemployment Rate %", 
         "Youth Unemployment Rate %", "Budget $B", "Budget Surplus $B", 
         "Budget Deficit % of GDP", "Public Debt % of GDP", "Exports $B", 
@@ -323,7 +323,7 @@ void UILayer::onUpdate(float) {
             
             ImGui::Text("Select Metric for TreeMap:");
             
-            if (ImGui::Combo("", &selectedTreemapMetric, treemapMetrics, IM_ARRAYSIZE(treemapMetrics))) {
+            if (ImGui::Combo("##TreemapMetricSelector", &selectedTreemapMetric, treemapMetrics, IM_ARRAYSIZE(treemapMetrics))) {
                 // Update treemap spec when selection changes
                 treemapSpec.series.columns = { treemapColumns[selectedTreemapMetric] };
                 treemapSpec.series.labels = { treemapMetrics[selectedTreemapMetric] };
