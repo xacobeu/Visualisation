@@ -1,6 +1,12 @@
-# Geography Visualisation Tool
+# Geoverview
 
-## Prerequisites
+## Running the App
+
+To run the application, navigate to dist/bin/ and run ImGuiOpenGLProject.exe
+
+## For developers
+
+### Prerequisites
 
 1. **Install a C++ Compiler**
 
@@ -13,7 +19,7 @@
    vcpkg install
    ```
 
-## Running
+### Running
 
 1. **Install 'CMake Tools' VScode extension**
 

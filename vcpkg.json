@@ -2,14 +2,20 @@
   "name": "visualisation",
   "version": "0.1.0",
   "dependencies": [
-    "glfw3",
     "glad",
+    "glfw3",
     "imgui",
     {
       "name": "imgui",
-      "features": ["glfw-binding", "opengl3-binding"]
+      "features": [
+        "docking-experimental",
+        "glfw-binding",
+        "opengl3-binding"
+      ]
     },
+    "implot",
     "stb",
+    "earcut-hpp",
     "nlohmann-json"
   ]
 }

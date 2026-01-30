@@ -1,0 +1,190 @@
+Country,Continent,Capital,Government_Type,Suffrage_Age
+Afghanistan,Asia,Kabul,Theocracy,18.0
+Albania,Europe,Tirana,Republic,18.0
+Algeria,Africa,Algiers,Republic,18.0
+Andorra,Europe,Andorra la Vella,Democracy,18.0
+Angola,Africa,Luanda,Republic,18.0
+Antigua And Barbuda,North America,Saint John’s,Democracy,18.0
+Argentina,South America,Buenos Aires,Republic,
+Armenia,Asia,Yerevan,Democracy,18.0
+Australia,Oceania,Canberra,Democracy,18.0
+Austria,Europe,Vienna,Republic,16.0
+Azerbaijan,Asia,Baku,Republic,18.0
+Bahamas,North America,Nassau,Democracy,18.0
+Bahrain,Asia,Manama,Monarchy,20.0
+Bangladesh,Asia,Dhaka,Republic,18.0
+Barbados,North America,Bridgetown,Republic,18.0
+Belarus,Europe,Minsk,Republic,18.0
+Belgium,Europe,Brussels,Democracy,18.0
+Belize,North America,Belmopan,Democracy,18.0
+Benin,Africa,Porto-Novo,Republic,18.0
+Bhutan,Asia,Thimphu,Monarchy,18.0
+Bolivia,South America,La Paz,Republic,18.0
+Bosnia and Herz.,Europe,Sarajevo,Republic,18.0
+Botswana,Africa,Gaborone,Republic,18.0
+Brazil,South America,Brasília,Republic,
+Brunei,Asia,Bandar Seri Begawan,Monarchy,18.0
+Bulgaria,Europe,Sofia,Republic,18.0
+Burkina Faso,Africa,Ouagadougou,Republic,18.0
+Burundi,Africa,Gitega,Republic,18.0
+Cabo Verde,Africa,Praia,Republic,18.0
+Cambodia,Asia,Phnom Penh,Monarchy,18.0
+Cameroon,Africa,Yaounde,Republic,20.0
+Canada,North America,Ottawa,Democracy,18.0
+Central African Rep.,Africa,Bangui,,18.0
+Chad,Africa,N’Djamena,Republic,18.0
+Chile,South America,Santiago; note - Valparaiso is the seat of the national legislature,Republic,18.0
+China,Asia,Beijing,Communist,18.0
+Colombia,South America,Bogota,Republic,18.0
+Comoros,Africa,Moroni,Republic,18.0
+Dem. Rep. Congo,Africa,Kinshasa,Republic,18.0
+Congo,Africa,Brazzaville,Republic,18.0
+Costa Rica,North America,Yamoussoukro,Republic,18.0
+Croatia,Europe,Zagreb,Republic,18.0
+Cuba,North America,Havana,Communist,16.0
+Cyprus,Europe,,Republic,
+Czechia,Europe,Prague,Republic,18.0
+Denmark,Europe,Copenhagen,Monarchy,18.0
+Djibouti,Africa,Djibouti,Republic,18.0
+Dominica,North America,Roseau,Republic,18.0
+Dominican Rep.,North America,Port-au-Prince,Republic,18.0
+Ecuador,South America,Quito,Republic,
+Egypt,Africa,Cairo,Republic,18.0
+El Salvador,North America,San Salvador,Republic,18.0
+Eq. Guinea,Africa,"Malabo; note - Malabo is on the island of Bioko; in 2017, some governmental offices began to move to a new capital of Ciudad de la",Republic,18.0
+Eritrea,Africa,Asmara,Republic,18.0
+Estonia,Europe,Tallinn,Republic,18.0
+eSwatini,Africa,Mbabane,Monarchy,18.0
+Ethiopia,Africa,Addis Ababa,Republic,18.0
+Fiji,Oceania,Suva,Republic,18.0
+Finland,Europe,Helsinki,Republic,18.0
+France,Europe,Madrid,Monarchy,18.0
+Gabon,Africa,Libreville,Republic,18.0
+Gambia,Africa,Banjul,Republic,18.0
+Georgia,Asia,Tbilisi,Republic,18.0
+Germany,Europe,Berlin,Republic,18.0
+Ghana,Africa,Accra,Republic,18.0
+Greece,Europe,Athens,Republic,17.0
+Grenada,North America,Saint George’s,Democracy,18.0
+Guatemala,North America,Guatemala City,Republic,18.0
+Guinea,Africa,Conakry,Republic,18.0
+Guinea-Bissau,Africa,Bissau,Republic,18.0
+Guyana,South America,Georgetown,Republic,18.0
+Vatican,Europe,Vatican City,Monarchy,
+Honduras,North America,"Tegucigalpa; note - article eight of the Honduran constitution states that the twin cities of Tegucigalpa and Comayaguela, jointly,",Republic,18.0
+Hungary,Europe,Budapest,Republic,18.0
+Iceland,Europe,Reykjavik,Republic,18.0
+India,Asia,New Delhi,Republic,18.0
+Indonesia,Asia,Jakarta; note - Indonesian lawmakers on 18 January 2022 approved the relocation of the country’s capital from Jakarta to a site on,Republic,17.0
+Iran,Asia,Tehran,Republic,18.0
+Iraq,Asia,Baghdad,Republic,18.0
+Ireland,Europe,Dublin,Republic,18.0
+Israel,Asia,Jerusalem; note - the US recognized Jerusalem as Israel’s capital in December 2017 without taking a position on the specific,Democracy,18.0
+Italy,Europe,Rome,Republic,18.0
+Jamaica,North America,Kingston,Democracy,18.0
+Japan,Asia,Tokyo,Monarchy,18.0
+Jordan,Asia,Amman,Monarchy,18.0
+Kazakhstan,Asia,Astana,Republic,18.0
+Kenya,Africa,Nairobi,Republic,18.0
+Kiribati,Oceania,Tarawa,Republic,18.0
+North Korea,Asia,Pyongyang,Other,17.0
+South Korea,Asia,"Seoul; note - Sejong, located some 120 km",Republic,18.0
+Kosovo,Europe,Pristina,Republic,18.0
+Kuwait,Asia,Kuwait City,Monarchy,21.0
+Kyrgyzstan,Asia,Bishkek,Republic,18.0
+Laos,Asia,Vientiane,Communist,18.0
+Latvia,Europe,Riga,Republic,18.0
+Lebanon,Asia,Beirut,Republic,21.0
+Lesotho,Africa,Maseru,Monarchy,18.0
+Liberia,Africa,Monrovia,Republic,18.0
+Libya,Africa,Tripoli,Other,18.0
+Liechtenstein,Europe,Vaduz,Monarchy,18.0
+Lithuania,Europe,,,
+Luxembourg,Europe,Luxembourg,Monarchy,18.0
+Madagascar,Africa,Antananarivo,Republic,18.0
+Malawi,Africa,Lilongwe,Republic,18.0
+Malaysia,Asia,Kuala Lumpur; note - nearby Putrajaya is referred to as a federal government administrative center but not the capital; Parliament,Monarchy,18.0
+Maldives,Asia,Male,Republic,18.0
+Mali,Africa,Bamako,Republic,18.0
+Malta,Europe,Valletta,Republic,18.0
+Marshall Is.,Oceania,Majuro; note - the capital is an atoll of 64 islands; governmental buildings are housed on three fused islands on the eastern side of the,Other,18.0
+Mauritania,Africa,Nouakchott,Republic,18.0
+Mauritius,Africa,Port Louis,Republic,18.0
+Mexico,North America,Mexico City,Republic,18.0
+Federated States Of Micronesia,Oceania,Palikir,Republic,18.0
+Moldova,Europe,Chisinau in Romanian,Republic,18.0
+Monaco,Europe,Monaco,Monarchy,18.0
+Mongolia,Asia,Ulaanbaatar,Republic,18.0
+Montenegro,Europe,Podgorica; note - Cetinje retains the status of “Old Royal Capital”,Republic,18.0
+Morocco,Africa,Rabat,Monarchy,18.0
+Mozambique,Africa,Maputo,Republic,18.0
+Nauru,Oceania,no official capital; government offices in the Yaren District,Republic,20.0
+Nepal,Asia,Kathmandu,Republic,18.0
+Netherlands,Europe,Amsterdam; note - The Hague is the seat of government,Monarchy,18.0
+Nicaragua,North America,Managua,Republic,16.0
+Niger,Africa,Niamey,Republic,18.0
+Nigeria,Africa,Abuja,Republic,18.0
+North Macedonia,Europe,Skopje,Republic,18.0
+Norway,Europe,Oslo,Monarchy,18.0
+Oman,Asia,Muscat,Monarchy,21.0
+Pakistan,Asia,Islamabad,Republic,18.0
+Palau,Oceania,Ngerulmud,Republic,18.0
+Panama,North America,Panama City,Republic,18.0
+Papua New Guinea,Oceania,Port Moresby,Democracy,18.0
+Paraguay,South America,Asuncion,Republic,18.0
+Peru,South America,Lima,Republic,18.0
+Philippines,Asia,,,
+Poland,Europe,Warsaw,Republic,18.0
+Portugal,Europe,Lisbon,Republic,18.0
+Qatar,Asia,Doha,Monarchy,18.0
+Romania,Europe,Bucharest,Republic,18.0
+Russia,Europe,Moscow,Other,18.0
+Rwanda,Africa,Kigali,Republic,18.0
+Saint Kitts And Nevis,North America,Basseterre,Democracy,18.0
+Saint Lucia,North America,Castries,Democracy,18.0
+Saint Vincent And The Grenadines,North America,Kingstown,Democracy,18.0
+Samoa,Oceania,Apia,Republic,21.0
+San Marino,Europe,San Marino,Republic,18.0
+Sao Tome And Principe,Africa,Sao Tome,Republic,18.0
+Saudi Arabia,Asia,Riyadh,Monarchy,18.0
+Senegal,Africa,Dakar,Republic,18.0
+Serbia,Europe,Belgrade,Republic,18.0
+Seychelles,Africa,Victoria,Republic,18.0
+Sierra Leone,Africa,Freetown,Republic,18.0
+Singapore,Asia,Singapore,Republic,21.0
+Slovakia,Europe,Bratislava,Republic,18.0
+Slovenia,Europe,Ljubljana,Republic,18.0
+Solomon Is.,Oceania,Honiara,Democracy,21.0
+Somalia,Africa,Mogadishu,Republic,18.0
+South Africa,Africa,Pretoria,Republic,18.0
+S. Sudan,Africa,Juba,Republic,18.0
+Sri Lanka,Asia,Colombo,Republic,18.0
+Sudan,Africa,Khartoum,Republic,17.0
+Suriname,South America,Paramaribo,Republic,18.0
+Sweden,Europe,Stockholm,Monarchy,18.0
+Switzerland,Europe,Bern,Republic,18.0
+Syria,Asia,Damascus,Republic,18.0
+Tajikistan,Asia,Dushanbe,Republic,18.0
+Tanzania,Africa,"Dodoma; note - Dodoma was designated the national capital in 1996; Dar es Salaam, the original national capital, is the country’s",Republic,18.0
+Thailand,Asia,Bangkok,Monarchy,18.0
+Timor-Leste,Asia,Dili,Republic,17.0
+Togo,Africa,Lome,Republic,18.0
+Tonga,Oceania,Nuku’alofa,Monarchy,21.0
+Trinidad and Tobago,North America,Port of Spain,Republic,18.0
+Tunisia,Africa,Tunis,Republic,18.0
+Turkey,Asia,Ankara,Republic,18.0
+Turkmenistan,Asia,Ashgabat,Republic,18.0
+Tuvalu,Oceania,Funafuti; note - the capital is an atoll of some 29 islets; administrative offices are in Vaiaku Village on Fongafale Islet,Democracy,18.0
+Uganda,Africa,Kampala,Republic,18.0
+Ukraine,Europe,Kyiv,Republic,18.0
+United Arab Emirates,Asia,Abu Dhabi,Other,
+United Kingdom,Europe,London,Monarchy,18.0
+United States of America,North America,"Washington, DC",Republic,18.0
+Uruguay,South America,Montevideo,Republic,18.0
+Uzbekistan,Asia,Tashkent,Republic,18.0
+Vanuatu,Oceania,Port-Vila,Republic,18.0
+Venezuela,South America,Caracas,Republic,18.0
+Vietnam,Asia,Hanoi,Communist,18.0
+Yemen,Asia,Sanaa,Other,18.0
+Zambia,Africa,Lusaka,Republic,18.0
+Zimbabwe,Africa,Harare,Republic,18.0
