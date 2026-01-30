@@ -194,12 +194,14 @@ void UILayer::onUpdate(float) {
     // Update map with brushed selection from graphs
     std::unordered_set<std::string> brushedIsos;
     if (GraphRenderer::s_HasSelection && !GraphRenderer::s_HighlightedPoints.empty()) {
-        const auto& selectedIds = mapLayer->getSelectedCountries();
+        // Use the same sorted countryNames as the graphs
         std::vector<std::string> countryNames;
+        const auto& selectedIds = mapLayer->getSelectedCountries();
+        countryNames.reserve(selectedIds.size());
         for (const auto& id : selectedIds) {
             countryNames.push_back(mapLayer->getCountryName(id));
         }
-        
+        std::sort(countryNames.begin(), countryNames.end());
         for (size_t i = 0; i < countryNames.size() && i < GraphRenderer::s_HighlightedPoints.size(); ++i) {
             if (GraphRenderer::s_HighlightedPoints[i]) {
                 std::string iso = mapLayer->getIsoCodeFromName(countryNames[i]);

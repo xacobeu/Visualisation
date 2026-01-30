@@ -100,3 +100,16 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/shaders"
 )
 
+# 1. Install the executable
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
+
+# 2. Install your resources (shaders and res folder)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/res/" DESTINATION bin/res)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/shaders/" DESTINATION bin/shaders)
+
+# 3. Automatically copy necessary DLLs (Windows specific)
+if(WIN32)
+    set(VCPKG_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/bin")
+    file(GLOB VCPKG_DLLS "${VCPKG_BIN_DIR}/*.dll")
+    install(FILES ${VCPKG_DLLS} DESTINATION bin)
+endif()

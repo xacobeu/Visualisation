@@ -677,10 +677,7 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
         (g_SplomActiveFeatures.size() + g_SplomAvailableFeatures.size()) != data.size()) {
         g_SplomActiveFeatures.clear();
         g_SplomAvailableFeatures.clear();
-        
-        // First spec.series.columns.size() features are active (from original spec)
-        size_t numOriginal = spec.series.columns.size();
-        
+
         for (size_t i = 0; i < data.size(); ++i) {
             SplomFeature feature;
             feature.id = (int)i;
@@ -1097,9 +1094,6 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
         (g_ActiveFeatures.size() + g_AvailableFeatures.size()) != data.size()) {
         g_ActiveFeatures.clear();
         g_AvailableFeatures.clear();
-        
-        // First spec.series.columns.size() features are active (from original spec)
-        size_t numOriginal = spec.series.columns.size();
         
         for (size_t i = 0; i < data.size(); ++i) {
             RadarFeature feature;
