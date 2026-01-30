@@ -33,6 +33,10 @@ public:
                        const std::string& highlight,
                        const std::unordered_map<std::string, std::string>& continentMap);
 
+    // SPLOM brushing state (public for access from UILayer)
+    static bool s_HasSelection;
+    static std::vector<bool> s_HighlightedPoints;
+
 private:
     static void RenderBar(const GraphSpec& spec,
                           const std::vector<std::string>& labels,
@@ -109,11 +113,9 @@ private:
                                float posX, float posY, unsigned int col,
                                const char* text, float angle);
 
-    // SPLOM state
+    // SPLOM internal state
     static bool s_IsDragging;
-    static bool s_HasSelection;
     static float s_DragStartX, s_DragStartY;
     static float s_DragEndX, s_DragEndY;
     static int s_DragPlotRow, s_DragPlotCol;
-    static std::vector<bool> s_HighlightedPoints;
 };

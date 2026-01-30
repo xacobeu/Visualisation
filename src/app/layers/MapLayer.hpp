@@ -40,6 +40,21 @@ public:
     void onRender(Renderer& renderer) override;
     
     void setHover(const std::string& isoCode);
+    
+    void setSearchHighlight(const std::string& isoCode) {
+        if (searchHighlightIso != isoCode) {
+            std::string previous = searchHighlightIso;
+            searchHighlightIso = isoCode;
+            if (!previous.empty()) updateCountryColor(previous);
+            if (!searchHighlightIso.empty()) updateCountryColor(searchHighlightIso);
+        }
+    }
+    void setHighlightedCountries(const std::unordered_set<std::string>& isoSet) {
+        highlightedCountries = isoSet;
+        for (const auto& [id, meta] : countries) {
+            updateCountryColor(id);
+        }
+    }
 
     void setSelectionEnabled(bool enabled) { selectionEnabled = enabled; }
     void selectCountry(const std::string& isoCode);
@@ -140,6 +155,7 @@ private:
     std::unordered_set<std::string> selectedCountries;
     std::unordered_set<std::string> highlightedCountries;
     std::string hoveredIso = "";
+    std::string searchHighlightIso = "";
 
     std::vector<MapVertex> vertices;
     std::vector<uint32_t> indices;

@@ -48,11 +48,10 @@ private:
     // Treemap state
     int selectedTreemapMetric = 0;
     
-    // Custom Graph Builder state
-    int customGraphType = 0; // 0=Scatter, 1=SPLOM, 2=Radar, 3=TreeMap
+    // Custom TreeMap Builder state
     std::vector<bool> selectedAttributes;
     std::vector<GraphSpec> savedCustomGraphs;
-    void renderCustomGraphBuilder();
+    void renderCustomTreeMapBuilder(const std::string& hoverCountry);
 
     // Graph Specifications (Configuration)
     GraphSpec radarSpec;
