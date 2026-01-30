@@ -1,5 +1,6 @@
 #include "UILayer.hpp"
 #include "MapLayer.hpp"
+#include "../util/GraphRenderer.hpp"
 
 #include <implot.h>
 #include <imgui.h>
@@ -7,6 +8,7 @@
 #include <algorithm>
 #include <cstring> // For memset, strncpy
 #include <iostream>
+#include <unordered_set>
 
 UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
     dataManager = std::make_unique<DataHandler>();
@@ -153,13 +155,14 @@ void UILayer::onUpdate(float) {
     // --- Determine Highlighted Country ---
     // Priority: Mouse Hover > Search Bar result
     std::string hoverCountry = "";
+    std::string searchCountry = "";
     
     // 1. Check Search Bar (Exact Match Logic)
     if (strlen(searchBuffer) > 0) {
          std::string s(searchBuffer);
          // Check if the buffer matches a known country exactly
          if (std::find(cachedCountryNames.begin(), cachedCountryNames.end(), s) != cachedCountryNames.end()) {
-             hoverCountry = s;
+             searchCountry = s;
          }
     }
 
@@ -170,14 +173,43 @@ void UILayer::onUpdate(float) {
             hoverCountry = mapLayer->getCountryName(hovered);
         }
     }
-
-    // Push hover to map (uses ISO code)
+    
+    // Use hover if present, otherwise use search
     if (!hoverCountry.empty()) {
+        // Mouse hover takes priority
         std::string hoverIso = mapLayer->getIsoCodeFromName(hoverCountry);
         mapLayer->setHover(hoverIso);
+        mapLayer->setSearchHighlight("");
+    } else if (!searchCountry.empty()) {
+        // Search bar highlight
+        std::string searchIso = mapLayer->getIsoCodeFromName(searchCountry);
+        mapLayer->setSearchHighlight(searchIso);
+        mapLayer->setHover("");
+        hoverCountry = searchCountry; // Use search for graph highlighting
     } else {
         mapLayer->setHover("");
+        mapLayer->setSearchHighlight("");
     }
+    
+    // Update map with brushed selection from graphs
+    std::unordered_set<std::string> brushedIsos;
+    if (GraphRenderer::s_HasSelection && !GraphRenderer::s_HighlightedPoints.empty()) {
+        const auto& selectedIds = mapLayer->getSelectedCountries();
+        std::vector<std::string> countryNames;
+        for (const auto& id : selectedIds) {
+            countryNames.push_back(mapLayer->getCountryName(id));
+        }
+        
+        for (size_t i = 0; i < countryNames.size() && i < GraphRenderer::s_HighlightedPoints.size(); ++i) {
+            if (GraphRenderer::s_HighlightedPoints[i]) {
+                std::string iso = mapLayer->getIsoCodeFromName(countryNames[i]);
+                if (!iso.empty()) {
+                    brushedIsos.insert(iso);
+                }
+            }
+        }
+    }
+    mapLayer->setHighlightedCountries(brushedIsos);
 
     // --- Main Panel: Graphs ---
     if (ImGui::Begin("Graphs")) {
@@ -199,14 +231,24 @@ void UILayer::onUpdate(float) {
             }
             std::sort(countryNames.begin(), countryNames.end());
 
-            // SPLOM
-            addSeparatorText("SPLOM");
-            auto splomData = dataManager->collectSeries(countryNames, splomSpec.series.columns);
+            // SPLOM - keep original spec, add other columns to data only
+            std::vector<std::string> splomAllColumns = splomSpec.series.columns;
+            for (const auto& col : availableColumns) {
+                if (std::find(splomSpec.series.columns.begin(), splomSpec.series.columns.end(), col) == splomSpec.series.columns.end()) {
+                    splomAllColumns.push_back(col);
+                }
+            }
+            auto splomData = dataManager->collectSeries(countryNames, splomAllColumns);
             GraphRenderer::Render(splomSpec, countryNames, splomData, hoverCountry);
 
-            // Radar
-            addSeparatorText("Radar");
-            auto radarData = dataManager->collectSeries(countryNames, radarSpec.series.columns);
+            // Radar - keep original spec, add other columns to data only
+            std::vector<std::string> radarAllColumns = radarSpec.series.columns;
+            for (const auto& col : availableColumns) {
+                if (std::find(radarSpec.series.columns.begin(), radarSpec.series.columns.end(), col) == radarSpec.series.columns.end()) {
+                    radarAllColumns.push_back(col);
+                }
+            }
+            auto radarData = dataManager->collectSeries(countryNames, radarAllColumns);
             GraphRenderer::Render(radarSpec, countryNames, radarData, hoverCountry);
 
             // Treemap
@@ -262,8 +304,8 @@ void UILayer::onUpdate(float) {
             
             ImGui::Separator();
             
-            // Custom Graph Builder
-            renderCustomGraphBuilder();
+            // Custom TreeMap Builder
+            renderCustomTreeMapBuilder(hoverCountry);
         }
     }
     ImGui::End();
@@ -280,7 +322,7 @@ void UILayer::onUpdate(float) {
             if (mapLayer->isChoroplethActive()) {
                 float value;
                 if (mapLayer->getChoroplethValue(hoveredCountry, value)) {
-                    std::string metricName = (selectedChoroplethColumn >= 0 && selectedChoroplethColumn < (int)availableColumns.size())
+                    std::string metricName = (selectedChoroplethColumn >= 0 && selectedChoroplethColumn < static_cast<int>(availableColumns.size()))
                         ? availableColumns[selectedChoroplethColumn]
                         : "Value";
                     const std::string& unit = mapLayer->getChoroplethUnit();
@@ -338,7 +380,7 @@ void UILayer::renderSearchBar() {
                         // On click: Set the buffer to the full name. 
                         // The 'onUpdate' loop will pick this up and set 'highlightCountry'
                         memset(searchBuffer, 0, sizeof(searchBuffer));
-                        strncpy_s(searchBuffer, country.c_str(), sizeof(searchBuffer) - 1);
+                        strncpy(searchBuffer, country.c_str(), sizeof(searchBuffer) - 1);
                         searchBuffer[sizeof(searchBuffer) - 1] = '\0';
                     }
                 }
@@ -374,7 +416,7 @@ void UILayer::renderChoroplethControls() {
         : "Select metric...";
 
     if (ImGui::BeginCombo("##ChoroplethMetric", previewValue)) {
-        for (int i = 0; i < static_cast<int>(choroplethLabels.size()); ++i) {
+        for (int i = 0; i < (int)availableColumns.size(); ++i) {
             bool isSelected = (selectedChoroplethColumn == i);
             if (ImGui::Selectable(choroplethLabels[i].c_str(), isSelected)) {
                 selectedChoroplethColumn = i;
@@ -423,7 +465,7 @@ void UILayer::renderChoroplethControls() {
         float segWidth = width / segments;
 
         for (int i = 0; i < segments; ++i) {
-            float t = (float)i / (float)(segments - 1);
+            float t = static_cast<float>(i) / static_cast<float>(segments - 1);
             ImVec4 c = ImPlot::SampleColormap(t, mapId);
             ImU32 col = ImGui::ColorConvertFloat4ToU32(c);
             
@@ -556,7 +598,7 @@ void UILayer::renderSelectionList() {
     if (ImGui::Button("Select All")) mapLayer->selectAll();
 }
 
-void UILayer::renderCustomGraphBuilder() {
+void UILayer::renderCustomTreeMapBuilder(const std::string& hoverCountry) {
     const auto& selectedCountries = mapLayer->getSelectedCountries();
     
     // Get country names from selected IDs
@@ -566,25 +608,38 @@ void UILayer::renderCustomGraphBuilder() {
         countryNames.push_back(mapLayer->getCountryName(id));
     }
     
-    // Only get hover country if mouse is not over UI elements
-    std::string hoverCountry = "";
-    if (!ImGui::GetIO().WantCaptureMouse) {
-        hoverCountry = mapLayer->getCountryAtCursor();
-        if (!hoverCountry.empty()) {
-            hoverCountry = mapLayer->getCountryName(hoverCountry);
+    // Filter columns suitable for treemaps (absolute values, not rates/percentages/ratios)
+    static std::vector<std::string> treemapCompatibleColumns;
+    if (treemapCompatibleColumns.empty() && !availableColumns.empty()) {
+        static const std::unordered_set<std::string> excludedColumns = {
+            // Exclude rates and percentages
+            "Population_Growth_Rate", "Birth_Rate", "Death_Rate", "Net_Migration_Rate",
+            "Real_GDP_Growth_Rate_percent", "Unemployment_Rate_percent", "Youth_Unemployment_Rate_percent",
+            "Budget_Deficit_percent_of_GDP", "Public_Debt_percent_of_GDP",
+            "Population_Below_Poverty_Line_percent", "electricity_access_percent", "Arable_Land_percent",
+            // Exclude ratios and per-capita values
+            "Exchange_Rate_per_USD", "Real_GDP_per_Capita_USD", "Median_Age",
+            // Exclude elevations (can be negative, not meaningful for treemap size)
+            "Highest_Elevation", "Lowest_Elevation"
+        };
+        
+        for (const auto& col : availableColumns) {
+            if (excludedColumns.find(col) == excludedColumns.end()) {
+                treemapCompatibleColumns.push_back(col);
+            }
         }
     }
     
-    // Render all saved custom graphs first
+    // Render all saved custom treemaps first
     for (size_t graphIdx = 0; graphIdx < savedCustomGraphs.size(); ++graphIdx) {
-        // Use unique string ID for each custom graph to ensure drag-and-drop works independently
-        std::string uniqueId = "CustomGraph_" + std::to_string(graphIdx);
+        // Use unique string ID for each custom treemap to ensure drag-and-drop works independently
+        std::string uniqueId = "CustomTreeMap_" + std::to_string(graphIdx);
         ImGui::PushID(uniqueId.c_str());
         
         auto customData = dataManager->collectSeries(countryNames, savedCustomGraphs[graphIdx].series.columns);
         
         // Add delete button
-        if (ImGui::Button("Delete Graph")) {
+        if (ImGui::Button("Delete TreeMap")) {
             savedCustomGraphs.erase(savedCustomGraphs.begin() + graphIdx);
             ImGui::PopID();
             break;
@@ -592,50 +647,45 @@ void UILayer::renderCustomGraphBuilder() {
         ImGui::SameLine();
         ImGui::Text("%s", savedCustomGraphs[graphIdx].title.c_str());
         
-        if (savedCustomGraphs[graphIdx].type == GraphType::TreeMap) {
-            // Build continent map for treemap
-            std::unordered_map<std::string, std::string> continentMap;
-            for (const auto& country : countryNames) {
-                continentMap[country] = dataManager->getContinent(country);
-            }
-            GraphRenderer::Render(savedCustomGraphs[graphIdx], countryNames, customData, hoverCountry, continentMap);
-        } else {
-            GraphRenderer::Render(savedCustomGraphs[graphIdx], countryNames, customData, hoverCountry);
+        // Build continent map for treemap
+        std::unordered_map<std::string, std::string> continentMap;
+        for (const auto& country : countryNames) {
+            continentMap[country] = dataManager->getContinent(country);
         }
+        GraphRenderer::Render(savedCustomGraphs[graphIdx], countryNames, customData, hoverCountry, continentMap);
         
         ImGui::Separator();
         ImGui::PopID();
     }
     
     // Now show the builder menu
-    addSeparatorText("Custom Graph Builder");
+    addSeparatorText("Custom TreeMap Builder");
     
     if (selectedCountries.empty()) {
-        ImGui::TextDisabled("Select countries to create custom graphs");
+        ImGui::TextDisabled("Select countries to create custom treemaps");
         return;
     }
     
-    // Initialize selectedAttributes if needed
-    if (selectedAttributes.size() != availableColumns.size()) {
-        selectedAttributes.resize(availableColumns.size(), false);
+    if (treemapCompatibleColumns.empty()) {
+        ImGui::TextDisabled("No treemap-compatible metrics available");
+        return;
     }
     
-    // Graph Type Selection
-    const char* graphTypes[] = {"Scatter Plot", "SPLOM", "Radar Chart", "TreeMap"};
-    ImGui::Text("Graph Type:");
-    ImGui::SetNextItemWidth(200);
-    ImGui::Combo("##GraphType", &customGraphType, graphTypes, IM_ARRAYSIZE(graphTypes));
+    // Initialize selectedAttributes if needed (based on treemap-compatible columns)
+    if (selectedAttributes.size() != treemapCompatibleColumns.size()) {
+        selectedAttributes.resize(treemapCompatibleColumns.size(), false);
+    }
     
     ImGui::Spacing();
     
-    // Attribute Selection
-    ImGui::Text("Select Attributes:");
+    // Metric Selection for TreeMap
+    ImGui::Text("Select Metric for TreeMap:");
     
     if (ImGui::BeginChild("AttributeSelection", ImVec2(0, 200), true)) {
-        for (size_t i = 0; i < availableColumns.size(); ++i) {
+        for (size_t i = 0; i < treemapCompatibleColumns.size(); ++i) {
             ImGui::PushID(static_cast<int>(i));
             bool isSelected = selectedAttributes[i];
-            if (ImGui::Checkbox(availableColumns[i].c_str(), &isSelected)) {
+            if (ImGui::Checkbox(treemapCompatibleColumns[i].c_str(), &isSelected)) {
                 selectedAttributes[i] = isSelected;
             }
             ImGui::PopID();
@@ -649,54 +699,18 @@ void UILayer::renderCustomGraphBuilder() {
         if (selected) selectedCount++;
     }
     
-    ImGui::Text("Selected: %d attributes", selectedCount);
+    ImGui::Text("Selected: %d metric", selectedCount);
     
-    // Show requirements for selected graph type
+    // Show requirements for treemap
     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Requirements:");
     ImGui::SameLine();
-    switch (customGraphType) {
-        case 0: // Scatter
-            ImGui::Text("Exactly 2 attributes");
-            break;
-        case 1: // SPLOM
-            ImGui::Text("At least 2 attributes");
-            break;
-        case 2: // Radar
-            ImGui::Text("At least 3 attributes");
-            break;
-        case 3: // TreeMap
-            ImGui::Text("Exactly 1 attribute");
-            break;
-    }
+    ImGui::Text("Exactly 1 metric");
     
     // Check if requirements are met
-    bool requirementsMet = false;
+    bool requirementsMet = (selectedCount == 1);
     std::string errorMsg = "";
-    switch (customGraphType) {
-        case 0: // Scatter
-            requirementsMet = (selectedCount == 2);
-            if (!requirementsMet && selectedCount > 0) {
-                errorMsg = "Scatter Plot requires exactly 2 attributes";
-            }
-            break;
-        case 1: // SPLOM
-            requirementsMet = (selectedCount >= 2);
-            if (!requirementsMet && selectedCount > 0) {
-                errorMsg = "SPLOM requires at least 2 attributes";
-            }
-            break;
-        case 2: // Radar
-            requirementsMet = (selectedCount >= 3);
-            if (!requirementsMet && selectedCount > 0) {
-                errorMsg = "Radar Chart requires at least 3 attributes";
-            }
-            break;
-        case 3: // TreeMap
-            requirementsMet = (selectedCount == 1);
-            if (!requirementsMet && selectedCount > 0) {
-                errorMsg = "TreeMap requires exactly 1 attribute";
-            }
-            break;
+    if (!requirementsMet && selectedCount > 0) {
+        errorMsg = "TreeMap requires exactly 1 metric";
     }
     
     if (!errorMsg.empty()) {
@@ -708,48 +722,29 @@ void UILayer::renderCustomGraphBuilder() {
     if (!requirementsMet) {
         ImGui::BeginDisabled();
     }
-    if (ImGui::Button("Generate Graph", ImVec2(200, 0))) {
-        if (selectedCount > 0) {
-            // Build column list from selected attributes
+    if (ImGui::Button("Generate TreeMap", ImVec2(200, 0))) {
+        if (selectedCount == 1) {
+            // Build column list from selected metric
             std::vector<std::string> selectedCols;
             std::vector<std::string> selectedLabels;
             
-            for (size_t i = 0; i < availableColumns.size(); ++i) {
+            for (size_t i = 0; i < treemapCompatibleColumns.size(); ++i) {
                 if (selectedAttributes[i]) {
-                    selectedCols.push_back(availableColumns[i]);
-                    selectedLabels.push_back(availableColumns[i]);
+                    selectedCols.push_back(treemapCompatibleColumns[i]);
+                    selectedLabels.push_back(treemapCompatibleColumns[i]);
                 }
             }
             
-            // Create new graph spec
+            // Create new treemap spec
             GraphSpec newGraph;
+            newGraph.type = GraphType::TreeMap;
             newGraph.series.columns = selectedCols;
             newGraph.series.labels = selectedLabels;
-            
-            // Set graph type and title
-            switch (customGraphType) {
-                case 0: 
-                    newGraph.type = GraphType::Scatter;
-                    newGraph.title = "Custom Scatter Plot";
-                    break;
-                case 1: 
-                    newGraph.type = GraphType::SPLOM;
-                    newGraph.title = "Custom SPLOM";
-                    break;
-                case 2: 
-                    newGraph.type = GraphType::Radar;
-                    newGraph.title = "Custom Radar Chart";
-                    break;
-                case 3: 
-                    newGraph.type = GraphType::TreeMap;
-                    newGraph.title = "Custom TreeMap";
-                    break;
-            }
-            
+            newGraph.title = "Custom TreeMap: " + selectedCols[0];
             newGraph.xLabel = "Countries";
             newGraph.yLabel = "Values";
             
-            // Add to saved graphs
+            // Add to saved treemaps
             savedCustomGraphs.push_back(newGraph);
         }
     }
@@ -765,10 +760,10 @@ void UILayer::renderCustomGraphBuilder() {
         }
     }
     
-    // Clear all graphs button
+    // Clear all treemaps button
     if (!savedCustomGraphs.empty()) {
         ImGui::SameLine();
-        if (ImGui::Button("Clear All Graphs", ImVec2(200, 0))) {
+        if (ImGui::Button("Clear All TreeMaps", ImVec2(200, 0))) {
             savedCustomGraphs.clear();
         }
     }

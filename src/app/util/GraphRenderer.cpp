@@ -505,15 +505,29 @@ void GraphRenderer::DrawTreemapNode(void* drawListPtr, const TreemapNode& node,
     // Color logic
     ImU32 col;
     bool isHighlighted = (!highlight.empty() && node.label == highlight);
+    bool isBrushed = s_HasSelection && node.originalIndex >= 0 && 
+                     node.originalIndex < (int)s_HighlightedPoints.size() && 
+                     s_HighlightedPoints[node.originalIndex];
+    
     if (isHighlighted) {
-        col = IM_COL32(255, 200, 50, 255); // Bright Yellow/Orange
+        col = IM_COL32(255, 200, 50, 255); // Bright Yellow/Orange for hover
+    } else if (isBrushed) {
+        col = IM_COL32(255, 153, 26, 255); // Bright orange for brushed
+    } else if (s_HasSelection) {
+        // Dimmed when there's a selection but this node isn't selected
+        ImU32 baseCol = getContinentColor(node.continent);
+        ImVec4 colVec = ImGui::ColorConvertU32ToFloat4(baseCol);
+        col = ImColor(colVec.x, colVec.y, colVec.z, 0.3f);
     } else {
         // Use continent color
         col = getContinentColor(node.continent);
     }
     drawList->AddRectFilled(pMin, pMax, col);
+    
     if (isHighlighted) {
          drawList->AddRect(pMin, pMax, IM_COL32(255, 255, 255, 255), 0.0f, 0, 3.0f);
+    } else if (isBrushed) {
+         drawList->AddRect(pMin, pMax, IM_COL32(255, 200, 100, 255), 0.0f, 0, 2.0f);
     }
     // Hover
     if (ImGui::IsMouseHoveringRect(pMin, pMax)) {
@@ -663,10 +677,14 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
         (g_SplomActiveFeatures.size() + g_SplomAvailableFeatures.size()) != data.size()) {
         g_SplomActiveFeatures.clear();
         g_SplomAvailableFeatures.clear();
+        
+        // First spec.series.columns.size() features are active (from original spec)
+        size_t numOriginal = spec.series.columns.size();
+        
         for (size_t i = 0; i < data.size(); ++i) {
             SplomFeature feature;
             feature.id = (int)i;
-            feature.label = (i < spec.series.labels.size()) ? spec.series.labels[i] : ("Feature " + std::to_string(i));
+            feature.label = (i < spec.series.labels.size()) ? spec.series.labels[i] : data[i].name;
             feature.series = data[i];
             if (i < 2) {
                 g_SplomActiveFeatures.push_back(feature);
@@ -1079,10 +1097,14 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
         (g_ActiveFeatures.size() + g_AvailableFeatures.size()) != data.size()) {
         g_ActiveFeatures.clear();
         g_AvailableFeatures.clear();
+        
+        // First spec.series.columns.size() features are active (from original spec)
+        size_t numOriginal = spec.series.columns.size();
+        
         for (size_t i = 0; i < data.size(); ++i) {
             RadarFeature feature;
             feature.id = (int)i;
-            feature.label = (i < spec.series.labels.size()) ? spec.series.labels[i] : ("Feature " + std::to_string(i));
+            feature.label = (i < spec.series.labels.size()) ? spec.series.labels[i] : data[i].name;
             feature.series = data[i];
             if (i < 3) {
                 g_ActiveFeatures.push_back(feature);
@@ -1191,12 +1213,37 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
         std::vector<std::vector<ImVec2>> allPolygons;
         allPolygons.reserve(countryCount);
 
+        // Ensure s_HighlightedPoints size matches - preserve existing values
+        if (s_HighlightedPoints.size() != countryCount) {
+            s_HighlightedPoints.resize(countryCount, false);
+        }
+
         for (size_t c = 0; c < countryCount; ++c) {
             if (labels[c] == highlight) continue;
 
-            ImVec4 colVec = ImColor::HSV((float)c / countryCount, 0.6f, 0.9f);
-            ImU32 col = ImColor(colVec);
-            ImU32 fillCol = IM_COL32((int)(colVec.x * 255), (int)(colVec.y * 255), (int)(colVec.z * 255), 50);
+            bool isBrushed = s_HasSelection && c < s_HighlightedPoints.size() && s_HighlightedPoints[c];
+            
+            ImVec4 colVec;
+            ImU32 col;
+            ImU32 fillCol;
+            
+            if (isBrushed) {
+                // Brushed polygons - bright orange
+                colVec = ImVec4(1.0f, 0.6f, 0.1f, 1.0f);
+                col = ImColor(colVec);
+                fillCol = IM_COL32(255, 153, 26, 80);
+            } else if (s_HasSelection) {
+                // Non-brushed polygons when there's a selection - dimmed
+                colVec = ImColor::HSV((float)c / countryCount, 0.6f, 0.9f);
+                col = ImColor(colVec.x, colVec.y, colVec.z, 0.2f);
+                fillCol = IM_COL32((int)(colVec.x * 255), (int)(colVec.y * 255), (int)(colVec.z * 255), 10);
+            } else {
+                // Normal rendering - no selection active
+                colVec = ImColor::HSV((float)c / countryCount, 0.6f, 0.9f);
+                col = ImColor(colVec);
+                fillCol = IM_COL32((int)(colVec.x * 255), (int)(colVec.y * 255), (int)(colVec.z * 255), 50);
+            }
+
             std::vector<ImVec2> poly;
 
             for (int a = 0; a < axisCount; ++a) {
@@ -1210,8 +1257,9 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
             if (poly.size() >= 3) {
                 for (int i = 0; i < axisCount; ++i) draw->AddTriangleFilled(center, poly[i], poly[(i+1)%axisCount], fillCol);
             }
+            float lineWidth = isBrushed ? 3.0f : 2.0f;
             for (int i = 0; i < axisCount; ++i) {
-                draw->AddLine(poly[i], poly[(i+1)%axisCount], col, 2.0f);
+                draw->AddLine(poly[i], poly[(i+1)%axisCount], col, lineWidth);
             }
         }
 
