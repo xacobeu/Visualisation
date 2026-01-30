@@ -21,10 +21,9 @@ private:
     void setupDockspace();
     void renderSelectionList();
     void renderChoroplethControls();
-    void renderFPSDisplay() const;
     void addSeparatorText(const std::string text) const;
     void renderLoadingScreen();
-    void renderSearchBar(); // <--- The Search Bar function definition
+    void renderSearchBar();
 
     // References and Managers
     MapLayer* mapLayer;

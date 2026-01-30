@@ -221,27 +221,24 @@ void MapLayer::applyChoropleth(const std::unordered_map<std::string, float>& cou
             float normalized = 0.0f;
 
             if (isDiverging) {
-                // --- DIVERGING LOGIC (Piecewise) ---
                 if (val < 0.0f) {
                     // Negative side: Map [minVal, 0] -> [0.0, 0.5]
-                    // If minVal is 0 (no negatives), this branch is skipped naturally or val=0 handled below
                     if (std::abs(minVal) > 0.0001f) {
-                        float ratio = (val - minVal) / (0.0f - minVal); // 0.0 to 1.0 within negative leg
-                        normalized = ratio * 0.5f;                      // Scale to 0.0 to 0.5
+                        float ratio = (val - minVal) / (0.0f - minVal);
+                        normalized = ratio * 0.5f;
                     } else {
-                        normalized = 0.5f; // Should not happen if val < 0
+                        normalized = 0.5f;
                     }
                 } else {
                     // Positive side: Map [0, maxVal] -> [0.5, 1.0]
                     if (maxVal > 0.0001f) {
-                        float ratio = val / maxVal;       // 0.0 to 1.0 within positive leg
-                        normalized = 0.5f + (ratio * 0.5f); // Scale to 0.5 to 1.0
+                        float ratio = val / maxVal;
+                        normalized = 0.5f + (ratio * 0.5f);
                     } else {
                         normalized = 0.5f;
                     }
                 }
             } else {
-                // --- SEQUENTIAL LOGIC (Linear) ---
                 // Map [minVal, maxVal] -> [0.0, 1.0]
                 normalized = (val - minVal) / rangeSeq;
             }

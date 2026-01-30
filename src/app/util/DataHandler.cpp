@@ -55,6 +55,9 @@ void DataHandler::init() {
         "Agricultural_Land",
         "Arable_Land_percent"
     });
+    loadFromCSV("res/data/cleaned_data_government.csv", {
+        "Suffrage_Age"
+    });
 }
 
 std::vector<PlotSeries> DataHandler::collectSeries(

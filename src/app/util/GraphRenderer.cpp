@@ -361,15 +361,18 @@ void GraphRenderer::RenderTreeMap(const GraphSpec& spec,
     
     // Add legend for continent colors
     if (!continentMap.empty() && continentGroups.size() > 1) {
-        // Helper to get continent color
+
         auto getContinentColor = [](const std::string& continent) -> ImU32 {
-            if (continent == "Africa") return IM_COL32(230, 126, 34, 255);
-            if (continent == "Asia") return IM_COL32(231, 76, 60, 255);
-            if (continent == "Europe") return IM_COL32(52, 152, 219, 255);
-            if (continent == "North America") return IM_COL32(46, 204, 113, 255);
-            if (continent == "South America") return IM_COL32(155, 89, 182, 255);
-            if (continent == "Oceania") return IM_COL32(26, 188, 156, 255);
-            return IM_COL32(149, 165, 166, 255);
+            // Perceptually balanced palette (Luminance ~60)
+            if (continent == "Africa")        return IM_COL32(232, 122, 144, 255); // Rose
+            if (continent == "Asia")          return IM_COL32(193, 146, 62,  255); // Ochre
+            if (continent == "Europe")        return IM_COL32(102, 166, 115, 255); // Sage
+            if (continent == "North America") return IM_COL32(0,   169, 181, 255); // Teal
+            if (continent == "South America") return IM_COL32(121, 147, 229, 255); // Azure
+            if (continent == "Oceania")       return IM_COL32(209, 123, 217, 255); // Violet
+            
+            // Default: Neutral Grey (Balanced Luminance)
+            return IM_COL32(160, 160, 160, 255); 
         };
         
         ImGui::Spacing();
@@ -400,9 +403,6 @@ void GraphRenderer::RenderTreeMap(const GraphSpec& spec,
             ImGui::Text("%s", continent.c_str());
         }
     }
-    
-    // Add extra spacing below treemap for scrolling
-    ImGui::Dummy(ImVec2(0, 100));
 }
 
 float GraphRenderer::WorstAspectRatio(const std::vector<TreemapNode*>& row, float sideLength) {
@@ -489,15 +489,17 @@ void GraphRenderer::DrawTreemapNode(void* drawListPtr, const TreemapNode& node,
     pMax.x -= 1; pMax.y -= 1;
     if (pMax.x <= pMin.x || pMax.y <= pMin.y) return;
     
-    // Helper to get continent color
     auto getContinentColor = [](const std::string& continent) -> ImU32 {
-        if (continent == "Africa") return IM_COL32(230, 126, 34, 255);       // Orange
-        if (continent == "Asia") return IM_COL32(231, 76, 60, 255);          // Red
-        if (continent == "Europe") return IM_COL32(52, 152, 219, 255);       // Blue
-        if (continent == "North America") return IM_COL32(46, 204, 113, 255); // Green
-        if (continent == "South America") return IM_COL32(155, 89, 182, 255); // Purple
-        if (continent == "Oceania") return IM_COL32(26, 188, 156, 255);      // Teal/Cyan
-        return IM_COL32(149, 165, 166, 255);                                    // Gray (Unknown)
+        // Perceptually balanced palette (Luminance ~60)
+        if (continent == "Africa")        return IM_COL32(232, 122, 144, 255); // Rose
+        if (continent == "Asia")          return IM_COL32(193, 146, 62,  255); // Ochre
+        if (continent == "Europe")        return IM_COL32(102, 166, 115, 255); // Sage
+        if (continent == "North America") return IM_COL32(0,   169, 181, 255); // Teal
+        if (continent == "South America") return IM_COL32(121, 147, 229, 255); // Azure
+        if (continent == "Oceania")       return IM_COL32(209, 123, 217, 255); // Violet
+        
+        // Default: Neutral Grey (Balanced Luminance)
+        return IM_COL32(160, 160, 160, 255); 
     };
     
     // Color logic
@@ -666,7 +668,11 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
             feature.id = (int)i;
             feature.label = (i < spec.series.labels.size()) ? spec.series.labels[i] : ("Feature " + std::to_string(i));
             feature.series = data[i];
-            g_SplomActiveFeatures.push_back(feature);
+            if (i < 2) {
+                g_SplomActiveFeatures.push_back(feature);
+            } else {
+                g_SplomAvailableFeatures.push_back(feature);
+            }
         }
     } else {
         // Update existing features with new data
@@ -995,8 +1001,8 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
         ImGui::EndTable();
     }
     
-    // Feature panel at the bottom - horizontal layout
-    ImGui::BeginChild("SplomFeaturePanel", ImVec2(0, 60), true, ImGuiWindowFlags_HorizontalScrollbar);
+    // Feature panel at the bottom - wrap layout
+    ImGui::BeginChild("SplomFeaturePanel", ImVec2(0, 100), true, 0);
     
     // Show placeholder text when empty, otherwise show features
     if (g_SplomAvailableFeatures.empty()) {
@@ -1006,13 +1012,13 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
         ImGui::SetCursorPos(ImVec2((avail.x - textSize.x) * 0.5f, (avail.y - textSize.y) * 0.5f));
         ImGui::TextDisabled("%s", placeholderText);
     } else {
-        // Available features list - horizontal
+
+        // Available features list 
         for (size_t i = 0; i < g_SplomAvailableFeatures.size(); ++i) {
-            if (i > 0) ImGui::SameLine();
-            ImGui::PushID((int)i);
+            ImGui::PushID(static_cast<int>(i));
             ImGui::Button(g_SplomAvailableFeatures[i].label.c_str());
             if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
-                int idx = (int)i;
+                int idx = static_cast<int>(i);
                 ImGui::SetDragDropPayload("SPLOM_FEATURE", &idx, sizeof(int));
                 ImGui::Text("Add: %s", g_SplomAvailableFeatures[i].label.c_str());
                 ImGui::EndDragDropSource();
@@ -1078,7 +1084,11 @@ void GraphRenderer::RenderRadar(const GraphSpec& spec,
             feature.id = (int)i;
             feature.label = (i < spec.series.labels.size()) ? spec.series.labels[i] : ("Feature " + std::to_string(i));
             feature.series = data[i];
-            g_ActiveFeatures.push_back(feature);
+            if (i < 3) {
+                g_ActiveFeatures.push_back(feature);
+            } else {
+                g_AvailableFeatures.push_back(feature);
+            }
         }
     } else {
         for (auto& feature : g_ActiveFeatures) if (feature.id >= 0 && feature.id < (int)data.size()) feature.series = data[feature.id];
@@ -1283,7 +1293,7 @@ RenderFooter:
     ImGui::Separator();
     
     // Feature panel at the bottom - horizontal layout
-    ImGui::BeginChild("FeaturePanel", ImVec2(0, 60), true, ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::BeginChild("FeaturePanel", ImVec2(0, 100), true, 0);
     
     // Show placeholder text when empty, otherwise show features
     if (g_AvailableFeatures.empty()) {
@@ -1294,7 +1304,6 @@ RenderFooter:
         ImGui::TextDisabled("%s", placeholderText);
     } else {
         for (size_t i = 0; i < g_AvailableFeatures.size(); ++i) {
-            if (i > 0) ImGui::SameLine();
             ImGui::PushID((int)i);
             ImGui::Button(g_AvailableFeatures[i].label.c_str());
             if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {

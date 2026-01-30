@@ -13,49 +13,83 @@ UILayer::UILayer(MapLayer* mapLayer) : mapLayer(mapLayer) {
 
     // Radar Graph Spec
     radarSpec.type = GraphType::Radar;
-    radarSpec.title = "##RadarChart";
+    radarSpec.title = "";
     radarSpec.xLabel = "Metrics";
     radarSpec.yLabel = "Values";
     radarSpec.series.columns = {
-        "Real_GDP_PPP_billion_USD",
-        "Real_GDP_per_Capita_USD",
-        "Budget_billion_USD",
-        "Budget_Surplus_billion_USD",
-        "Exports_billion_USD",
-        "Imports_billion_USD",
-        "Exchange_Rate_per_USD",
+        "telephone_fixed_subscriptions_total", "mobile_cellular_subscriptions_total", "internet_users_total", 
+        "broadband_fixed_subscriptions_total", "Total_Population", "Birth_Rate", 
+        "Death_Rate", "Median_Age", "Sex_Ratio", "Infant_Mortality_Rate", 
+        "Total_Fertility_Rate", "Total_Literacy_Rate", "Male_Literacy_Rate", "Female_Literacy_Rate", 
+        "Youth_Unemployment_Rate", "Real_GDP_PPP_billion_USD", "GDP_Official_Exchange_Rate_billion_USD", 
+        "Real_GDP_Growth_Rate_percent", "Real_GDP_per_Capita_USD", "Unemployment_Rate_percent", 
+        "Youth_Unemployment_Rate_percent", "Budget_billion_USD", "Budget_Surplus_billion_USD", 
+        "Budget_Deficit_percent_of_GDP", "Public_Debt_percent_of_GDP", "Exports_billion_USD", 
+        "Imports_billion_USD", "Exchange_Rate_per_USD", "Population_Below_Poverty_Line_percent", 
+        "electricity_access_percent", "electricity_generating_capacity_kW", "coal_metric_tons", 
+        "petroleum_bbl_per_day", "refined_petroleum_products_bbl_per_day", "refined_petroleum_exports_bbl_per_day", 
+        "refined_petroleum_imports_bbl_per_day", "natural_gas_cubic_meters", "carbon_dioxide_emissions_Mt", 
+        "Area_Total", "Highest_Elevation", "Lowest_Elevation", "Forest_Land", "Other_Land", 
+        "Agricultural_Land", "Arable_Land_percent", "Suffrage_Age"
     };
     radarSpec.series.labels = {
-        "GDP (PPP) (billion USD)",
-        "GDP per Capita (USD)",
-        "Budget (billion USD)",
-        "Budget Surplus (billion USD)",
-        "Exports (billion USD)",
-        "Imports (billion USD)",
-        "Exchange Rate (per USD)"
+        "Fixed Telephone Subscriptions", "Mobile Cellular Subscriptions", "Total Internet Users", 
+        "Fixed Broadband Subscriptions", "Total Population", "Birth Rate", 
+        "Death Rate", "Median Age", "Sex Ratio", "Infant Mortality Rate", 
+        "Total Fertility Rate", "Total Literacy Rate", "Male Literacy Rate", "Female Literacy Rate", 
+        "Youth Unemployment Rate", "Real GDP (PPP) $B", "GDP (Official Exchange) $B", 
+        "Real GDP Growth Rate %", "Real GDP per Capita $", "Unemployment Rate %", 
+        "Youth Unemployment Rate %", "Budget $B", "Budget Surplus $B", 
+        "Budget Deficit % of GDP", "Public Debt % of GDP", "Exports $B", 
+        "Imports $B", "Exchange Rate per USD", "Population Below Poverty Line %", 
+        "Electricity Access %", "Electricity Generating Capacity kW", "Coal (Metric Tons)", 
+        "Petroleum (bbl/day)", "Refined Petroleum Products (bbl/day)", "Refined Petroleum Exports (bbl/day)", 
+        "Refined Petroleum Imports (bbl/day)", "Natural Gas (cu m)", "CO2 Emissions (Mt)", 
+        "Total Area", "Highest Elevation", "Lowest Elevation", "Forest Land", "Other Land", 
+        "Agricultural Land", "Arable Land %", "Suffrage Age"
     };
 
     // SPLOM Graph Spec
     splomSpec.type = GraphType::SPLOM;
-    splomSpec.title = "##SPLOM";
+    splomSpec.title = "";
     splomSpec.xLabel = "Indicators";
     splomSpec.yLabel = "Indicators";
     splomSpec.series.columns = {
-        "Real_GDP_per_Capita_USD",
-        "Unemployment_Rate_percent",
-        "Budget_Deficit_percent_of_GDP",
-        "Public_Debt_percent_of_GDP"
+        "telephone_fixed_subscriptions_total", "mobile_cellular_subscriptions_total", "internet_users_total", 
+        "broadband_fixed_subscriptions_total", "Total_Population", "Population_Growth_Rate", "Birth_Rate", 
+        "Death_Rate", "Net_Migration_Rate", "Median_Age", "Sex_Ratio", "Infant_Mortality_Rate", 
+        "Total_Fertility_Rate", "Total_Literacy_Rate", "Male_Literacy_Rate", "Female_Literacy_Rate", 
+        "Youth_Unemployment_Rate", "Real_GDP_PPP_billion_USD", "GDP_Official_Exchange_Rate_billion_USD", 
+        "Real_GDP_Growth_Rate_percent", "Real_GDP_per_Capita_USD", "Unemployment_Rate_percent", 
+        "Youth_Unemployment_Rate_percent", "Budget_billion_USD", "Budget_Surplus_billion_USD", 
+        "Budget_Deficit_percent_of_GDP", "Public_Debt_percent_of_GDP", "Exports_billion_USD", 
+        "Imports_billion_USD", "Exchange_Rate_per_USD", "Population_Below_Poverty_Line_percent", 
+        "electricity_access_percent", "electricity_generating_capacity_kW", "coal_metric_tons", 
+        "petroleum_bbl_per_day", "refined_petroleum_products_bbl_per_day", "refined_petroleum_exports_bbl_per_day", 
+        "refined_petroleum_imports_bbl_per_day", "natural_gas_cubic_meters", "carbon_dioxide_emissions_Mt", 
+        "Area_Total", "Highest_Elevation", "Lowest_Elevation", "Forest_Land", "Other_Land", 
+        "Agricultural_Land", "Arable_Land_percent", "Suffrage_Age"
     };
     splomSpec.series.labels = {
-        "GDP per Capita",
-        "Unemployment Rate",
-        "Budget Deficit",
-        "Public Debt"
+        "Fixed Telephone Subscriptions", "Mobile Cellular Subscriptions", "Total Internet Users", 
+        "Fixed Broadband Subscriptions", "Total Population", "Population Growth Rate", "Birth Rate", 
+        "Death Rate", "Net Migration Rate", "Median Age", "Sex Ratio", "Infant Mortality Rate", 
+        "Total Fertility Rate", "Total Literacy Rate", "Male Literacy Rate", "Female Literacy Rate", 
+        "Youth Unemployment Rate", "Real GDP (PPP) $B", "GDP (Official Exchange) $B", 
+        "Real GDP Growth Rate %", "Real GDP per Capita $", "Unemployment Rate %", 
+        "Youth Unemployment Rate %", "Budget $B", "Budget Surplus $B", 
+        "Budget Deficit % of GDP", "Public Debt % of GDP", "Exports $B", 
+        "Imports $B", "Exchange Rate per USD", "Population Below Poverty Line %", 
+        "Electricity Access %", "Electricity Generating Capacity kW", "Coal (Metric Tons)", 
+        "Petroleum (bbl/day)", "Refined Petroleum Products (bbl/day)", "Refined Petroleum Exports (bbl/day)", 
+        "Refined Petroleum Imports (bbl/day)", "Natural Gas (cu m)", "CO2 Emissions (Mt)", 
+        "Total Area", "Highest Elevation", "Lowest Elevation", "Forest Land", "Other Land", 
+        "Agricultural Land", "Arable Land %", "Suffrage Age"
     };
 
     // Treemap Spec
     treemapSpec.type = GraphType::TreeMap;
-    treemapSpec.title = "##Treemap";
+    treemapSpec.title = "";
     treemapSpec.xLabel = "";
     treemapSpec.yLabel = "";
     treemapSpec.series.columns = { "Real_GDP_PPP_billion_USD" };
@@ -87,12 +121,7 @@ void UILayer::onUpdate(float) {
 
     // --- Side Panel: Map Controls ---
     if (ImGui::Begin("Map Controls")) {
-        renderFPSDisplay();
-        ImGui::Separator();
-        
-        // Map mode tabs
-        addSeparatorText("Map Mode");
-        
+                
         if (ImGui::BeginTabBar("MapModeTabs")) {
             if (ImGui::BeginTabItem("Selection")) {
                 if (currentMapTab != 0) {
@@ -101,9 +130,7 @@ void UILayer::onUpdate(float) {
                     mapLayer->clearChoropleth();
                     selectedChoroplethColumn = -1;
                 }
-                ImGui::Spacing();
-                ImGui::TextDisabled("Click on countries to select them.");
-                ImGui::Separator();
+
                 renderSelectionList();
                 ImGui::EndTabItem();
             }
@@ -162,7 +189,7 @@ void UILayer::onUpdate(float) {
         const auto& selectedIds = mapLayer->getSelectedCountries();
 
         if (selectedIds.empty()) {
-            ImGui::TextDisabled("No countries selected. Click on the map to select countries.");
+            ImGui::TextDisabled("Click on the map to select countries.");
         } else {
             // Convert IDs to Names and Sort Alphabetically.
             std::vector<std::string> countryNames;
@@ -173,41 +200,50 @@ void UILayer::onUpdate(float) {
             std::sort(countryNames.begin(), countryNames.end());
 
             // SPLOM
+            addSeparatorText("SPLOM");
             auto splomData = dataManager->collectSeries(countryNames, splomSpec.series.columns);
             GraphRenderer::Render(splomSpec, countryNames, splomData, hoverCountry);
 
-            ImGui::Separator();
-
             // Radar
+            addSeparatorText("Radar");
             auto radarData = dataManager->collectSeries(countryNames, radarSpec.series.columns);
             GraphRenderer::Render(radarSpec, countryNames, radarData, hoverCountry);
 
-            ImGui::Separator();
-
             // Treemap
+            addSeparatorText("Treemap");
             const char* treemapMetrics[] = {
-                "GDP (PPP)",
-                "GDP per Capita",
-                "Budget",
-                "Exports",
-                "Imports",
-                "Population"
+                "Fixed Telephone Subscriptions", "Mobile Cellular Subscriptions", "Total Internet Users", 
+                "Fixed Broadband Subscriptions", "Total Population", "Population Growth Rate", "Birth Rate", 
+                "Death Rate", "Net Migration Rate", "Median Age", "Sex Ratio", "Infant Mortality Rate", 
+                "Total Fertility Rate", "Total Literacy Rate", "Male Literacy Rate", "Female Literacy Rate", 
+                "Youth Unemployment Rate", "Real GDP (PPP) $B", "GDP (Official Exchange) $B", 
+                "Real GDP Growth Rate %", "Real GDP per Capita $", "Unemployment Rate %", 
+                "Youth Unemployment Rate %", "Budget $B", "Budget Surplus $B", 
+                "Budget Deficit % of GDP", "Public Debt % of GDP", "Exports $B", 
+                "Imports $B", "Exchange Rate per USD", "Population Below Poverty Line %", 
+                "Electricity Access %", "Electricity Generating Capacity kW", "Coal (Metric Tons)", 
+                "Petroleum (bbl/day)", "Refined Petroleum Products (bbl/day)", "Refined Petroleum Exports (bbl/day)", 
+                "Refined Petroleum Imports (bbl/day)", "Natural Gas (cu m)", "CO2 Emissions (Mt)", 
+                "Total Area", "Highest Elevation", "Lowest Elevation", "Forest Land", "Other Land", 
+                "Agricultural Land", "Arable Land %",
             };
             const char* treemapColumns[] = {
-                "Real_GDP_PPP_billion_USD",
-                "Real_GDP_per_Capita_USD",
-                "Budget_billion_USD",
-                "Exports_billion_USD",
-                "Imports_billion_USD",
-                "Total_Population"
+                "telephone_fixed_subscriptions_total", "mobile_cellular_subscriptions_total", "internet_users_total", 
+                "broadband_fixed_subscriptions_total", "Total_Population", "Population_Growth_Rate", "Birth_Rate", 
+                "Death_Rate", "Net_Migration_Rate", "Median_Age", "Sex_Ratio", "Infant_Mortality_Rate", 
+                "Total_Fertility_Rate", "Total_Literacy_Rate", "Male_Literacy_Rate", "Female_Literacy_Rate", 
+                "Youth_Unemployment_Rate", "Real_GDP_PPP_billion_USD", "GDP_Official_Exchange_Rate_billion_USD", 
+                "Real_GDP_Growth_Rate_percent", "Real_GDP_per_Capita_USD", "Unemployment_Rate_percent", 
+                "Youth_Unemployment_Rate_percent", "Budget_billion_USD", "Budget_Surplus_billion_USD", 
+                "Budget_Deficit_percent_of_GDP", "Public_Debt_percent_of_GDP", "Exports_billion_USD", 
+                "Imports_billion_USD", "Exchange_Rate_per_USD", "Population_Below_Poverty_Line_percent", 
+                "electricity_access_percent", "electricity_generating_capacity_kW", "coal_metric_tons", 
+                "petroleum_bbl_per_day", "refined_petroleum_products_bbl_per_day", "refined_petroleum_exports_bbl_per_day", 
+                "refined_petroleum_imports_bbl_per_day", "natural_gas_cubic_meters", "carbon_dioxide_emissions_Mt", 
+                "Area_Total", "Highest_Elevation", "Lowest_Elevation", "Forest_Land", "Other_Land", 
+                "Agricultural_Land", "Arable_Land_percent"
             };
             
-            // Center the Treemap Metric dropdown
-            float comboWidth = 200.0f;
-            float availWidth = ImGui::GetContentRegionAvail().x;
-            float offset = (availWidth - comboWidth) * 0.5f;
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (offset > 0 ? offset : 0));
-            ImGui::SetNextItemWidth(comboWidth);
             if (ImGui::Combo("Treemap Metric", &selectedTreemapMetric, treemapMetrics, IM_ARRAYSIZE(treemapMetrics))) {
                 // Update treemap spec when selection changes
                 treemapSpec.series.columns = { treemapColumns[selectedTreemapMetric] };
@@ -316,25 +352,36 @@ void UILayer::renderSearchBar() {
 }
 
 void UILayer::renderChoroplethControls() {
-    ImGui::TextDisabled("Color map by data metric:");
+    ImGui::TextDisabled("Color map by:");
     
-    const char* previewValue = (selectedChoroplethColumn >= 0 && selectedChoroplethColumn < (int)availableColumns.size())
-        ? availableColumns[selectedChoroplethColumn].c_str()
+    // Build labels for availableColumns (assume order matches radarSpec.series.columns/labels)
+    std::vector<std::string> choroplethLabels;
+    for (const auto& col : availableColumns) {
+        auto it = std::find(radarSpec.series.columns.begin(), radarSpec.series.columns.end(), col);
+        if (it != radarSpec.series.columns.end()) {
+            size_t idx = std::distance(radarSpec.series.columns.begin(), it);
+            if (idx < radarSpec.series.labels.size())
+                choroplethLabels.push_back(radarSpec.series.labels[idx]);
+            else
+                choroplethLabels.push_back(col);
+        } else {
+            choroplethLabels.push_back(col);
+        }
+    }
+
+    const char* previewValue = (selectedChoroplethColumn >= 0 && selectedChoroplethColumn < static_cast<int>(choroplethLabels.size()))
+        ? choroplethLabels[selectedChoroplethColumn].c_str()
         : "Select metric...";
-    
+
     if (ImGui::BeginCombo("##ChoroplethMetric", previewValue)) {
-        for (int i = 0; i < (int)availableColumns.size(); ++i) {
+        for (int i = 0; i < static_cast<int>(choroplethLabels.size()); ++i) {
             bool isSelected = (selectedChoroplethColumn == i);
-            if (ImGui::Selectable(availableColumns[i].c_str(), isSelected)) {
-                
+            if (ImGui::Selectable(choroplethLabels[i].c_str(), isSelected)) {
                 selectedChoroplethColumn = i;
                 auto columnData = dataManager->getColumnWithUnitForAllCountries(availableColumns[i]);
-                
                 currentIsDiverging = columnData.isDiverging;
-                
                 currentMinVal = std::numeric_limits<float>::max();
                 currentMaxVal = std::numeric_limits<float>::lowest();
-                
                 std::unordered_map<std::string, float> isoData;
                 for (const auto& [countryName, value] : columnData.values) {
                     std::string isoCode = mapLayer->getIsoCodeFromName(countryName);
@@ -344,7 +391,6 @@ void UILayer::renderChoroplethControls() {
                         if (value > currentMaxVal) currentMaxVal = value;
                     }
                 }
-                
                 mapLayer->applyChoropleth(isoData, columnData.unit, columnData.isDiverging);
             }
             if (isSelected) ImGui::SetItemDefaultFocus();
@@ -421,13 +467,13 @@ void UILayer::renderChoroplethControls() {
 }
 
 void UILayer::renderSelectionList() {
-    addSeparatorText("Selected Countries");
-    
+
+    addSeparatorText("Search");
     // Search bar for adding countries
     static char countrySearchBuffer[128] = "";
     ImGui::SetNextItemWidth(-1);
     ImGui::InputTextWithHint("##CountrySearch", "Search countries to select...", countrySearchBuffer, IM_ARRAYSIZE(countrySearchBuffer));
-    
+
     // Show search results dropdown
     if (strlen(countrySearchBuffer) > 0) {
         if (ImGui::BeginChild("CountrySearchResults", ImVec2(0, 150), true)) {
@@ -758,11 +804,6 @@ void UILayer::setupDockspace() {
         ImGui::EndMenuBar();
     }
     ImGui::End();
-}
-
-void UILayer::renderFPSDisplay() const {
-    ImGuiIO& io = ImGui::GetIO();
-    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
 }
 
 void UILayer::renderLoadingScreen() {
