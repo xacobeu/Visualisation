@@ -322,7 +322,9 @@ void UILayer::onUpdate(float) {
                 "Agricultural_Land",
             };
             
-            if (ImGui::Combo("Treemap Metric", &selectedTreemapMetric, treemapMetrics, IM_ARRAYSIZE(treemapMetrics))) {
+            ImGui::Text("Select Metric for TreeMap:");
+            
+            if (ImGui::Combo("", &selectedTreemapMetric, treemapMetrics, IM_ARRAYSIZE(treemapMetrics))) {
                 // Update treemap spec when selection changes
                 treemapSpec.series.columns = { treemapColumns[selectedTreemapMetric] };
                 treemapSpec.series.labels = { treemapMetrics[selectedTreemapMetric] };
@@ -1124,68 +1126,34 @@ void UILayer::renderCustomTreeMapBuilder(const std::string& hoverCountry) {
         ImGui::EndCombo();
     }
     
-    // Count selected attributes
-    int selectedCount = (selectedTreemapMetric >= 0) ? 1 : 0;
-    
-    ImGui::Text("Selected: %d metric", selectedCount);
-    
-    // Show requirements for treemap
-    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Requirements:");
-    ImGui::SameLine();
-    ImGui::Text("Exactly 1 metric");
-    
-    // Check if requirements are met
-    bool requirementsMet = (selectedCount == 1);
-    std::string errorMsg = "";
-    if (!requirementsMet && selectedCount > 0) {
-        errorMsg = "TreeMap requires exactly 1 metric";
-    }
-    
-    if (!errorMsg.empty()) {
-        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", errorMsg.c_str());
-    }
-    
     // Generate button
     ImGui::Spacing();
-    if (!requirementsMet) {
-        ImGui::BeginDisabled();
-    }
+
     if (ImGui::Button("Generate TreeMap", ImVec2(200, 0))) {
-        if (selectedCount == 1) {
-            // Build column list from selected metric
-            std::vector<std::string> selectedCols;
-            std::vector<std::string> selectedLabels;
-            
-            for (size_t i = 0; i < treemapCompatibleColumns.size(); ++i) {
-                if (selectedAttributes[i]) {
-                    selectedCols.push_back(treemapCompatibleColumns[i]);
-                    selectedLabels.push_back(treemapCompatibleColumns[i]);
-                }
+        
+        // Build column list from selected metric
+        std::vector<std::string> selectedCols;
+        std::vector<std::string> selectedLabels;
+        
+        for (size_t i = 0; i < treemapCompatibleColumns.size(); ++i) {
+            if (selectedAttributes[i]) {
+                selectedCols.push_back(treemapCompatibleColumns[i]);
+                selectedLabels.push_back(treemapCompatibleColumns[i]);
             }
-            
-            // Create new treemap spec
-            GraphSpec newGraph;
-            newGraph.type = GraphType::TreeMap;
-            newGraph.series.columns = selectedCols;
-            newGraph.series.labels = selectedLabels;
-            newGraph.title = "Custom TreeMap: " + selectedCols[0];
-            newGraph.xLabel = "Countries";
-            newGraph.yLabel = "Values";
-            
-            // Add to saved treemaps
-            savedCustomGraphs.push_back(newGraph);
         }
-    }
-    if (!requirementsMet) {
-        ImGui::EndDisabled();
-    }
-    
-    // Clear button
-    ImGui::SameLine();
-    if (ImGui::Button("Clear Selection", ImVec2(200, 0))) {
-        for (size_t i = 0; i < selectedAttributes.size(); ++i) {
-            selectedAttributes[i] = false;
-        }
+        
+        // Create new treemap spec
+        GraphSpec newGraph;
+        newGraph.type = GraphType::TreeMap;
+        newGraph.series.columns = selectedCols;
+        newGraph.series.labels = selectedLabels;
+        newGraph.title = "Custom TreeMap: " + selectedCols[0];
+        newGraph.xLabel = "Countries";
+        newGraph.yLabel = "Values";
+        
+        // Add to saved treemaps
+        savedCustomGraphs.push_back(newGraph);
+        
     }
     
     // Clear all treemaps button
