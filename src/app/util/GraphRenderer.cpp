@@ -936,11 +936,9 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
                         if (isDragSelected) {
                             ImPlot::PushStyleColor(ImPlotCol_MarkerFill, ImVec4(1.0f, 0.6f, 0.1f, 1.0f));
                             ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, ImVec4(1.0f, 0.8f, 0.3f, 1.0f));
-                            ImPlot::PushStyleVar(ImPlotStyleVar_MarkerSize, 7.0f);
                         } else if (isFilterSelected) {
                             ImPlot::PushStyleColor(ImPlotCol_MarkerFill, ImVec4(0.3f, 0.9f, 0.4f, 1.0f));
                             ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, ImVec4(0.5f, 1.0f, 0.6f, 1.0f));
-                            ImPlot::PushStyleVar(ImPlotStyleVar_MarkerSize, 7.0f);
                         } else if (s_HasSelection || s_HasFilter) {
                             ImPlot::PushStyleColor(ImPlotCol_MarkerFill, ImVec4(0.2f, 0.5f, 0.2f, 0.3f));
                             ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, ImVec4(0.15f, 0.4f, 0.15f, 0.3f));
@@ -952,7 +950,6 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
                         ImPlot::PlotScatter(("##" + labels[i]).c_str(), &activeData[col].values[i], &activeData[row].values[i], 1);
                         
                         ImPlot::PopStyleColor(2);
-                        if (isDragSelected || isFilterSelected) ImPlot::PopStyleVar();
                     }
                     
                     // Second pass: draw hover-highlighted point on top
@@ -963,12 +960,10 @@ void GraphRenderer::RenderSPLOM(const GraphSpec& spec,
                             
                             ImPlot::PushStyleColor(ImPlotCol_MarkerFill, ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
                             ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-                            ImPlot::PushStyleVar(ImPlotStyleVar_MarkerSize, 8.0f);
                             
                             ImPlot::PlotScatter(("##" + labels[i]).c_str(), &activeData[col].values[i], &activeData[row].values[i], 1);
                             
                             ImPlot::PopStyleColor(2);
-                            ImPlot::PopStyleVar();
                             break; // Only one hover highlight
                         }
                     }
